@@ -32,3 +32,6 @@ coverage/
 qa/
 test-results/
 playwright-report/
+
+# Generated local vision models and SDK runtime
+/public/vision/

@@ -30,9 +30,9 @@
 
 - Main goal: sunscreen application recognition on the web. UV information, reminders, and ingredient analysis are supporting features.
 - Hand movement tracking does not prove actual sunscreen application, adequate amount, SPF, or UVA protection. Actual coverage recognition is not validated yet.
-- The app uses React, Vite, Astryx and Express. Run `npm ci`, `npm run dev`, `npm test`, `npm run build`, and `npm run test:e2e` (Chrome). `npm start` serves the production build and UV API. Recognition is not connected yet.
+- The app uses React, Vite, Astryx, Express and same-origin MediaPipe face/hand models. Run `npm ci`, `npm run dev`, `npm test`, `npm run build`, and `npm run test:e2e` (Chrome). `npm start` serves the production build and UV API. `predev`/`prebuild` prepare pinned vision assets. Motion observation is connected; actual sunscreen presence and protection are not validated.
 - Reapplication reminders use actual manual application timestamps and explicit daily opt-in. Apply the user-requested UV bands: 0–2 wait, 3 -> 150 minutes, 4–5 -> 120, 6–7 -> 80, 8+ -> 60; missing/stale UV -> 120. This is a product reminder policy, not a personalized protection duration or regulatory formula. Refresh location with consent at reminder time and refresh forecasts for the last known position every 30 minutes while visible.
-- Camera video stays in the browser preview; it is not stored or transmitted. Document image transmission before adding an external analysis service.
+- Camera video and landmarks are processed in browser memory only; they are not stored or transmitted. Motion detection must not automatically create an application-time record. Document image transmission before adding an external analysis service.
 - UI copy is Korean; code identifiers are English.
 - Shared research is in `docs/sunguard/`, indexed by `docs/README.md`, and is intended for GitHub.
 - Design documents go in `docs/superpowers/specs/`; implementation plans go in `docs/superpowers/plans/`.

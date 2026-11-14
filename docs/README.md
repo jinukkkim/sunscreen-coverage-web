@@ -11,6 +11,13 @@
 3. [SunSense 상세 분석](sunguard/02-sunsense.md)
 4. [기본 카메라 도포 인식의 가능성과 한계](sunguard/03-recognition-feasibility.md)
 5. [출처와 확인 범위](sunguard/04-sources.md)
+6. [도포 동작 검증 기록](sunguard/05-motion-validation.md)
+
+## 구현 설계
+
+- [얼굴 스캔 후 부위별 도포 동작 인식](superpowers/specs/2026-11-14-face-first-motion-recognition-design.md)
+- [얼굴 스캔·도포 동작 인식 구현 계획](superpowers/plans/2026-11-14-face-first-motion-recognition.md)
+- [재도포 기록·UV별 알림·하루 타임라인](superpowers/specs/2026-11-14-reapplication.md)
 
 ## 문서 관리
 
@@ -18,4 +25,4 @@
 
 프로젝트 루트에 `main` 브랜치의 로컬 Git 저장소를 초기화했다. GitHub 저장소는 `jinukkkim/sunscreen-coverage-web`, 공개, MIT 라이선스로 선택했다. MIT 저작권 표기는 `SunGuard contributors`이며 팀 공동 기여를 기준으로 한다. Claude 코드 리뷰·GitHub App·관련 시크릿 연결은 하지 않는다. [GitHub 저장소](https://github.com/jinukkkim/sunscreen-coverage-web)에 기본 파일을 업로드했다. 조사 문서는 별도 문서 PR로 관리한다.
 
-웹 구현은 기록·재도포 알림·하루 타임라인·기상청 UV 예보까지 연결했다. [기능 설계와 검증 기준](superpowers/specs/2026-11-14-reapplication.md)을 참고한다. 실제 도포 인식 모델은 아직 연결하지 않았으며, `docs/sunguard/00-project.md`의 사용자 결정과 미검증 가정을 구분해 따른다.
+웹 구현은 얼굴 스캔·정면 5구역의 도포 동작 관찰과 기록·UV별 재도포 알림·하루 타임라인·기상청 예보를 함께 제공한다. 동작 감지와 실제 선크림 도포 판단은 구분하며, `docs/sunguard/00-project.md`의 사용자 결정과 미검증 가정을 구분해 따른다.
