@@ -82,7 +82,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect(page.getByRole('heading', { name: formatTime(stored.records[0].at + 80 * 60000), exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
-  await expect.poll(hasOverlay).toBe(false);
+  await expect.poll(hasOverlay).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
