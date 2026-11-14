@@ -70,6 +70,13 @@ test('partial motion progresses, completion records once and starts the UV timer
   const hasOverlay = () => overlay.evaluate(canvas =>
     canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0));
   await expect.poll(hasOverlay).toBe(true);
+  const greenPixels = () => overlay.evaluate(canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 1] > pixels[i] * 1.15 && pixels[i + 1] > pixels[i + 2] * 1.05 && pixels[i + 3] > 20) count++;
+    return count;
+  });
+  const partialGreen = await greenPixels();
   const before = await page.evaluate(() => Date.now());
   await page.evaluate(() => { window.motionFixture.limit = Infinity; });
   await expect(overall).toHaveAttribute('aria-valuenow', '100', { timeout: 35000 });
@@ -82,7 +89,9 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect(page.getByRole('heading', { name: formatTime(stored.records[0].at + 80 * 60000), exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
-  await expect.poll(hasOverlay).toBe(false);
+  await expect.poll(hasOverlay).toBe(true);
+  await expect.poll(greenPixels).toBeGreaterThan(partialGreen * 2);
+  expect(await page.locator('video').evaluate(video => video.paused)).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
@@ -91,7 +100,11 @@ test('partial motion progresses, completion records once and starts the UV timer
   uv = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인', exact: true }).click();
   await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '새 도포 시작', exact: true }).click();
+  await expect(overall).toHaveAttribute('aria-valuenow', '0');
+  await expect.poll(() => page.locator('video').evaluate(video => video.paused)).toBe(false);
   await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
+  await expect.poll(hasOverlay).toBe(false);
   await page.reload();
   await expect(page.getByText(/동작 완료 자동 기록/).first()).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);

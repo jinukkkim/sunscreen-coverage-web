@@ -35,19 +35,34 @@ function FaceOverlay({ analysis, video }) {
     element.width = size.width * ratio; element.height = size.height * ratio;
     const context = element.getContext('2d');
     context.scale(ratio, ratio);
-    if (analysis.phase === 'completed' || !analysis.geometry || !source?.videoWidth || !size.width) return;
+    if (!analysis.geometry || !source?.videoWidth || !size.width) return;
     const display = point => getDisplayPoint(point, {
       videoWidth: source.videoWidth, videoHeight: source.videoHeight,
       stageWidth: size.width, stageHeight: size.height, mirrored: true,
     });
-    // Region status stays as a borderless tint only while a region is observed or detected.
+    // Retain partial progress between observations. Fill the mesh upward within
+    // each observed region, keeping eyes and lips outside the painted area.
     for (const region of analysis.geometry.regions) {
-      const status = analysis.regions.find(item => item.id === region.id)?.status;
-      if (status !== 'detected' && status !== 'observing') continue;
+      const progress = Math.max(0, Math.min(100, analysis.regions.find(item => item.id === region.id)?.progress || 0)) / 100;
+      if (!progress) continue;
+      const points = region.polygon.map(display);
+      const xs = points.map(p => p.x), ys = points.map(p => p.y);
+      const left = Math.min(...xs), top = Math.min(...ys), width = Math.max(...xs) - left, bottom = Math.max(...ys);
+      context.save();
       context.beginPath();
-      region.polygon.map(display).forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y));
-      context.closePath();
-      context.fillStyle = status === 'detected' ? '#70d39b66' : '#ffca5c66'; context.fill();
+      points.forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y));
+      context.closePath(); context.clip();
+      context.beginPath(); context.rect(0, 0, size.width, size.height);
+      for (const hole of analysis.geometry.exclusions) {
+        hole.map(display).forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y));
+        context.closePath();
+      }
+      context.clip('evenodd');
+      const height = (bottom - top) * progress;
+      context.globalAlpha = .2 + .35 * progress;
+      context.fillStyle = '#7cf2a2';
+      context.fillRect(left, bottom - height, width, height);
+      context.restore();
     }
     if (connections) {
       context.save();
@@ -55,7 +70,7 @@ function FaceOverlay({ analysis, video }) {
       for (const [a, b] of getMeshSegments(analysis.geometry.landmarks, connections)) {
         const p = display(a), q = display(b); context.moveTo(p.x, p.y); context.lineTo(q.x, q.y);
       }
-      context.globalAlpha = .55; context.lineWidth = .7; context.lineCap = 'round';
+      context.globalAlpha = .7; context.lineWidth = .7; context.lineCap = 'round';
       context.strokeStyle = '#eef8f2'; context.shadowColor = '#eef8f2'; context.shadowBlur = 4;
       context.stroke();
       context.restore();
@@ -101,9 +116,12 @@ export default function Camera({ onAnalysisChange }) {
     setStatus('idle'); setError(''); setAnalysis(emptyAnalysis);
   }
   function analyze() {
+    // A completed session holds the final frame with its result until restarted.
+    void video.current?.play().catch(() => {});
     vision.current ??= createVisionSession({
       video: video.current, onUpdate: update => {
         if (!alive.current) return;
+        if (update.phase === 'completed') video.current?.pause();
         setAnalysis(update);
         onChange.current?.({ phase: update.phase, regions: update.regions, detectedCount: update.detectedCount, progress: update.progress, sessionId: update.sessionId, completedAt: update.completedAt });
       },
@@ -162,6 +180,7 @@ export default function Camera({ onAnalysisChange }) {
           {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
         <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
+        <Text type="supporting">초록색이 채워질수록 해당 부위의 동작 진행률이 높습니다. 완료 화면은 고정되며, 새 도포 시작을 누르면 다시 관찰합니다.</Text>
         <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
       </VStack>
     </Section>

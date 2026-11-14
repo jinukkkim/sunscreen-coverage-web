@@ -66,6 +66,12 @@ test('mobile layout keeps controls and timeline inside the viewport', async ({ p
   await page.goto('/');
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const dayline = page.getByRole('list', { name: '하루 도포 타임라인' });
+  await expect(dayline.getByText('09:00 · 도포 완료', { exact: true })).toBeVisible();
+  await expect(dayline.getByText('11:00 · 다음 재도포', { exact: true })).toBeVisible();
+  await expect(dayline.getByText('20:00 · 오늘 알림 종료', { exact: true })).toBeVisible();
+  await expect(dayline.locator('[aria-current="time"]')).toHaveCount(1);
+  await page.getByRole('region', { name: '앞으로 바를 시각' }).screenshot({ path: '.pr-review/dayline-mobile.png' });
   await page.screenshot({ path: '.pr-review/care-mobile.png', fullPage: true });
 });
 
