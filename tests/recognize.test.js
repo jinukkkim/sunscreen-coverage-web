@@ -111,8 +111,16 @@ test('gemini caller sends the key in a header, requests JSON and extracts the te
 });
 
 test('gemini caller converts provider failures into recognition errors', async () => {
-  const limited = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: false, status: 429 }) });
-  await assert.rejects(limited({ prompt: 'p', images: [jpeg()] }), { code: 'model-unavailable', status: 429 });
+  const limited = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: false, status: 429, text: async () => 'quota' }), log: () => {} });
+  await assert.rejects(limited({ prompt: 'p', images: [jpeg()] }), { code: 'model-unavailable', status: 429, providerStatus: 429 });
+  const logged = [];
+  const notFound = createGeminiCaller({ apiKey: 'secret-key', model: 'm', fetch: async () => ({ ok: false, status: 404, text: async () => '{"error":{"message":"model not found"}}' }), log: m => logged.push(m) });
+  await assert.rejects(notFound({ prompt: 'p', images: [jpeg()] }), { code: 'model-unavailable', status: 502, providerStatus: 404, message: /GEMINI_MODEL/ });
+  assert.match(logged[0], /404/);
+  assert.match(logged[0], /model not found/);
+  assert.doesNotMatch(logged[0], /secret-key/);
+  const forbidden = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: false, status: 403, text: async () => '' }), log: () => {} });
+  await assert.rejects(forbidden({ prompt: 'p', images: [jpeg()] }), { message: /API 키/ });
   const down = createGeminiCaller({ apiKey: 'k', fetch: async () => { throw new TypeError('fetch failed'); } });
   await assert.rejects(down({ prompt: 'p', images: [jpeg()] }), { code: 'model-unavailable', status: 502 });
   const empty = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });

@@ -51,10 +51,11 @@ export function buildPrompt() {
 }
 
 export class RecognitionError extends Error {
-  constructor(code, message, status = 400) {
+  constructor(code, message, status = 400, providerStatus = undefined) {
     super(message);
     this.code = code;
     this.status = status;
+    this.providerStatus = providerStatus;
   }
 }
 
@@ -118,7 +119,7 @@ export function parseModelOutput(text) {
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.
-export function createGeminiCaller({ apiKey, model = 'gemini-2.5-flash', fetch = globalThis.fetch, timeoutMs = 30_000 }) {
+export function createGeminiCaller({ apiKey, model = 'gemini-2.5-flash', fetch = globalThis.fetch, timeoutMs = 30_000, log = console.error }) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   return async function callModel({ prompt, images }) {
@@ -135,8 +136,14 @@ export function createGeminiCaller({ apiKey, model = 'gemini-2.5-flash', fetch =
         }),
       });
       if (!response.ok) {
+        let detail = '';
+        try { detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 300); } catch { /* ignore */ }
+        // Logged for the operator; never includes the image or the key.
+        log(`[recognize] provider responded ${response.status} for model ${model}: ${detail}`);
+        const hint = response.status === 404 ? ' (모델 이름을 확인하세요: GEMINI_MODEL)'
+          : [400, 401, 403].includes(response.status) ? ' (API 키를 확인하세요)' : '';
         const status = response.status === 429 ? 429 : 502;
-        throw new RecognitionError('model-unavailable', '분석 서비스를 사용할 수 없습니다. 직접 입력해 주세요.', status);
+        throw new RecognitionError('model-unavailable', `분석 서비스를 사용할 수 없습니다.${hint} 직접 입력해 주세요.`, status, response.status);
       }
       const body = await response.json();
       const text = body?.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? '';
@@ -162,7 +169,9 @@ export function createRecognizeHandler({ callModel, prompt = buildPrompt() }) {
       return { status: 200, body: { ok: true, result } };
     } catch (error) {
       if (error instanceof RecognitionError) {
-        return { status: error.status, body: { ok: false, code: error.code, message: error.message } };
+        const body = { ok: false, code: error.code, message: error.message };
+        if (error.providerStatus) body.providerStatus = error.providerStatus;
+        return { status: error.status, body };
       }
       return { status: 500, body: { ok: false, code: 'internal', message: '분석 중 오류가 발생했습니다.' } };
     }
