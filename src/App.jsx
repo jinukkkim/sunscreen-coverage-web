@@ -1,5 +1,6 @@
 import React from 'react';
 import Camera from './components/Camera.jsx';
+import ProductSetup from './components/ProductSetup.jsx';
 
 export default function App() {
   return (
@@ -21,7 +22,7 @@ export default function App() {
         </div>
         <div className="supporting">
           <section className="card"><h2>자외선 정보</h2><p>기상 데이터 연결 준비 중</p></section>
-          <section className="card"><h2>성분 분석</h2><p>제품 성분 분석 연결 준비 중</p></section>
+          <ProductSetup />
           <section className="card"><h2>덧바름 알림</h2><p>알림 설정 기능 준비 중</p></section>
         </div>
         <p className="notice">일반 카메라를 이용한 실제 도포 인식 정확도는 아직 검증되지 않았습니다. 도포량과 자외선 차단력을 측정하지 않습니다.</p>
