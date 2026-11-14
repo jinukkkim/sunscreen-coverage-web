@@ -1,0 +1,13 @@
+{
+  "brand": "라운드랩",
+  "productName": "자작나무 수분 선크림",
+  "sellerName": "주식회사 서린컴퍼니",
+  "spf": 50,
+  "spfPlus": true,
+  "paGrade": 4,
+  "form": "cream",
+  "waterResistance": "unknown",
+  "ingredients": ["정제수", "에칠헥실메톡시신나메이트", "Butyl Methoxydibenzoylmethane", "징크옥사이드", "글리세린"],
+  "confidence": { "brand": 0.95, "productName": 0.9, "sellerName": 0.8, "spf": 0.98, "spfPlus": 0.98, "paGrade": 0.97, "form": 0.9, "waterResistance": 0.3, "ingredients": 0.7 },
+  "notVisible": ["waterResistance"]
+}
