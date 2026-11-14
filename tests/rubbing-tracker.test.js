@@ -150,3 +150,19 @@ test('static hands and head-only movement cannot raise progress', () => {
   }
   assert.equal(tracker.snapshot().progress, 0);
 });
+
+
+test('interrupt preserves completed and partial progress without joining motion across the gap', () => {
+  const tracker = createRubbingTracker();
+  feed(tracker, 2200);
+  feed(tracker, 3800, 100, 2300, t => regionHand('leftCheek', t));
+  const before = tracker.snapshot();
+  assert.equal(before.detectedCount, 1);
+  tracker.interrupt();
+  assert.equal(tracker.snapshot().progress, before.progress);
+  assert.equal(tracker.snapshot().detectedCount, 1);
+  assert.equal(tracker.snapshot().regions.find(r => r.id === 'leftCheek').status, 'pending');
+  feed(tracker, 4900, 100, 3900, t => regionHand('leftCheek', t));
+  assert.equal(tracker.snapshot().detectedCount, 1);
+  assert.equal(tracker.snapshot().progress, before.progress);
+});

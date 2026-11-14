@@ -35,7 +35,7 @@ test('partial motion progresses, completion records once and starts the UV timer
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
       export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}], createFromOptions: async () => ({
-        detectForVideo: () => ({faceLandmarks: [window.motionFixture.face]}),
+        detectForVideo: () => ({faceLandmarks: window.motionFixture.faceVisible === false ? [] : [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
       })};
       export const HandLandmarker = {createFromOptions: async () => ({
@@ -70,6 +70,24 @@ test('partial motion progresses, completion records once and starts the UV timer
   const hasOverlay = () => overlay.evaluate(canvas =>
     canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0));
   await expect.poll(hasOverlay).toBe(true);
+  const partialProgress = await overall.getAttribute('aria-valuenow');
+  await page.evaluate(() => { window.motionFixture.faceVisible = false; });
+  await expect(page.getByText('인식 복구 대기', { exact: true })).toBeVisible();
+  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
+  await expect.poll(hasOverlay).toBe(false);
+  await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
+  await page.evaluate(() => { window.motionFixture.faceVisible = true; });
+  await expect(page.getByText('동작 관찰 중', { exact: true })).toBeVisible();
+  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
+  // Sustained loss requires confirmation but keeps the same accumulated progress.
+  await page.evaluate(() => { window.motionFixture.faceVisible = false; });
+  await expect(page.getByText('얼굴 스캔 중', { exact: true })).toBeVisible({ timeout: 6000 });
+  await page.evaluate(() => { window.motionFixture.faceVisible = true; });
+  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
+  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
+  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
+  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
+  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   const before = await page.evaluate(() => Date.now());
   await page.evaluate(() => { window.motionFixture.limit = Infinity; });
   await expect(overall).toHaveAttribute('aria-valuenow', '100', { timeout: 35000 });
