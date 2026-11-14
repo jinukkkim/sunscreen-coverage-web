@@ -119,7 +119,7 @@ export function parseModelOutput(text) {
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.
-export function createGeminiCaller({ apiKey, model = 'gemini-2.5-flash', fetch = globalThis.fetch, timeoutMs = 30_000, log = console.error }) {
+export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch = globalThis.fetch, timeoutMs = 30_000, log = console.error }) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   return async function callModel({ prompt, images }) {
