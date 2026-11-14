@@ -227,7 +227,7 @@ async function partial(f) {
   return { progress: f.last.progress, sessionId: f.last.sessionId };
 }
 
-test('brief face loss or invalid pose preserves progress and resumes without adding missing motion', async () => {
+test('brief face loss or invalid pose preserves credit and resumes observed motion without counting the gap', async () => {
   for (const invalid of [[], [face().map(p => ({ ...p, x: p.x + .4 }))]]) {
     const f = fixture(); const before = await partial(f);
     f.input.faces = invalid;
@@ -237,12 +237,15 @@ test('brief face loss or invalid pose preserves progress and resumes without add
     assert.equal(f.last.progress, before.progress);
     assert.equal(f.last.sessionId, before.sessionId);
     f.input.faces = [face()];
-    for (let t = 3100; t <= 4000; t += 100) {
+    f.input.hands = [regionHand('rightCheek', 3100)]; f.tick(3100);
+    assert.equal(f.last.progress, before.progress);
+    assert.equal(f.last.detectedCount, 0);
+    for (let t = 3200; t <= 4100; t += 100) {
       f.input.hands = [regionHand('rightCheek', t)]; f.tick(t);
     }
     assert.equal(f.last.phase, 'tracking');
-    assert.equal(f.last.detectedCount, 0);
-    assert.equal(f.last.progress, before.progress);
+    assert.equal(f.last.detectedCount, 1);
+    assert.ok(f.last.progress > before.progress);
     f.session.stop();
   }
 });
