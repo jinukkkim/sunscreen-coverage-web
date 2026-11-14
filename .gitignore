@@ -10,6 +10,7 @@ Thumbs.db
 
 # Credentials and local environment
 .env*
+!.env.example
 *.pem
 *.key
 *.p12
@@ -29,3 +30,5 @@ coverage/
 .superpowers/
 .pr-review/
 qa/
+test-results/
+playwright-report/

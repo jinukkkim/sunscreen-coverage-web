@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createCameraSession } from '../lib/camera.js';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
+import { Section } from '@astryxdesign/core/Section';
 
 export default function Camera() {
   const video = useRef(null);
@@ -44,19 +50,19 @@ export default function Camera() {
   }
 
   return (
-    <section className="card" aria-labelledby="camera-title">
-      <h2 id="camera-title">카메라</h2>
-      <div className="camera-stage">
-        <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" />
-        {status !== 'active' && <p>{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</p>}
-      </div>
-      <p role="status">{status === 'active' ? '카메라 사용 중 · 분석은 실행되지 않습니다.' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</p>
-      {error && <p role="alert">{error}</p>}
-      <div className="actions">
-        <button onClick={start} disabled={status !== 'idle'}>카메라 켜기</button>
-        <button className="secondary" onClick={stop} disabled={status === 'idle'}>{status === 'loading' ? '연결 취소' : '카메라 끄기'}</button>
-      </div>
-      <p className="muted">영상은 브라우저 미리보기에만 사용하며 저장하거나 외부 서버로 전송하지 않습니다.</p>
-    </section>
+    <Section padding={4}>
+      <VStack gap={3}>
+        <Heading level={2}>카메라</Heading>
+        <video ref={video} autoPlay muted playsInline hidden={status !== 'active'} aria-label="카메라 미리보기" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', transform: 'scaleX(-1)', borderRadius: 'var(--radius-container)' }} />
+        {status !== 'active' && <Text>{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text>}
+        <Text role="status">{status === 'active' ? '카메라 사용 중 · 분석은 실행되지 않습니다.' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</Text>
+        {error && <Text role="alert">{error}</Text>}
+        <HStack wrap="wrap" gap={2}>
+          <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle'} />
+          <Button label={status === 'loading' ? '연결 취소' : '카메라 끄기'} onClick={stop} isDisabled={status === 'idle'} />
+        </HStack>
+        <Text type="supporting">영상은 브라우저 미리보기에만 사용하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
+      </VStack>
+    </Section>
   );
 }
