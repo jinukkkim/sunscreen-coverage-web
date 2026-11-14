@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, policyAt, readCare, recordApplication, timeline, uvAt, uvPolicy } from '../src/lib/reapplication.js';
+import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, policyAt, readCare, recordApplication, recordMotionCompletion, recordSourceLabel, timeline, uvAt, uvPolicy } from '../src/lib/reapplication.js';
 import { deliverReminder } from '../src/lib/reminders.js';
 import { locate, getForecast } from '../src/lib/location.js';
 
@@ -147,4 +147,43 @@ test('geolocation requests a fresh position and rounds only the coordinates sent
     assert.equal(url, '/api/uv?latitude=37.567&longitude=126.978');
     return new Response(JSON.stringify({ slots: [{ value: 0 }] }));
   });
+});
+
+test('motion completion records its timestamp and starts UV-based reminders atomically', () => {
+  const state = recordMotionCompletion(emptyCare(), { sessionId: 'session-1', at: at('09:00') }, at('09:00'));
+  assert.equal(state.records.length, 1);
+  assert.equal(state.records[0].at, at('09:00'));
+  assert.equal(recordSourceLabel(state.records[0]), '동작 완료 자동 기록');
+  assert.equal(state.enabled, true);
+  assert.equal(state.activeDay, '2026-11-14');
+  assert.equal(nextDue(state, at('09:00'), forecastOf(7)).at, at('10:20'));
+  assert.equal(pendingReminder(state, at('09:00'), forecastOf(0)), null);
+});
+
+test('repeated completion does not duplicate records or re-enable an explicitly stopped reminder', () => {
+  const event = { sessionId: 'session-1', at: at('09:00') };
+  const first = recordMotionCompletion(emptyCare(), event, at('09:00'));
+  const disabled = { ...first, enabled: false };
+  assert.equal(recordMotionCompletion(disabled, event, at('09:01')), disabled);
+  const restored = readCare(JSON.stringify(disabled), at('09:01'));
+  const removed = { ...restored, records: [] };
+  assert.equal(recordMotionCompletion(removed, event, at('09:01')), removed);
+});
+
+test('completion in the same minute replaces a manual entry and preserves the latest completion time', () => {
+  const state = recordApplication(emptyCare(), at('09:00'), at('09:00'), 'manual');
+  const completed = recordMotionCompletion(state, { sessionId: 'session-1', at: at('09:00') + 15000 }, at('09:01'));
+  assert.equal(completed.records.length, 1);
+  assert.equal(completed.records[0].at, at('09:00') + 15000);
+  assert.equal(completed.records[0].source, 'motion');
+});
+
+test('new completion resets the countdown while preserving the chosen end time', () => {
+  const first = recordMotionCompletion({ ...emptyCare(), endTime: '18:00' }, { sessionId: 'first', at: at('09:00') }, at('09:00'));
+  const second = recordMotionCompletion(first, { sessionId: 'second', at: at('10:00') }, at('10:00'));
+  assert.equal(second.records.length, 2);
+  assert.equal(nextDue(second, at('10:00'), forecastOf(8, at('10:00'))).at, at('11:00'));
+  assert.equal(second.endTime, '18:00');
+  assert.throws(() => recordMotionCompletion(second, { sessionId: '', at: at('10:00') }, at('10:00')));
+  assert.throws(() => recordMotionCompletion(second, { sessionId: 'future', at: at('12:00') }, at('10:00')));
 });

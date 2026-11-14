@@ -7,13 +7,15 @@ const fingerIndices = [6, 8, 10, 12, 14, 16];
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 export function createRubbingTracker() {
-  let detected = new Set(), tracks = [], lastTimestamp = null;
+  let detected = new Set(), progress = new Map(), tracks = [], lastTimestamp = null;
   function snapshot() {
-    return { regions: REGIONS.map(({ id }) => ({
+    const regions = REGIONS.map(({ id }) => ({
       id, status: detected.has(id) ? 'detected' : tracks.some(t => t.region === id && t.activeMs > 0) ? 'observing' : 'pending',
-    })), detectedCount: detected.size };
+      progress: detected.has(id) ? 100 : progress.get(id) || 0,
+    }));
+    return { regions, detectedCount: detected.size, progress: Math.floor(regions.reduce((sum, region) => sum + region.progress, 0) / REGIONS.length) };
   }
-  function reset() { detected = new Set(); tracks = []; lastTimestamp = null; }
+  function reset() { detected = new Set(); progress = new Map(); tracks = []; lastTimestamp = null; }
   function update({ geometry, hands = [], timestampMs }) {
     if (!Number.isFinite(timestampMs) || (lastTimestamp !== null && timestampMs <= lastTimestamp)) return snapshot();
     const dt = lastTimestamp === null ? 0 : timestampMs - lastTimestamp;
@@ -55,6 +57,11 @@ export function createRubbingTracker() {
       }
       if (track.activeMs >= REQUIRED_MS && track.path >= MIN_PATH &&
         Math.hypot(track.maxX - track.minX, track.maxY - track.minY) >= MIN_RANGE) detected.add(o.region);
+      // Show the strongest valid continuous observation, never a measured dose.
+      // Interrupted tracks cannot add their time together to reach completion.
+      const fraction = Math.min(track.activeMs / REQUIRED_MS, track.path / MIN_PATH,
+        Math.hypot(track.maxX - track.minX, track.maxY - track.minY) / MIN_RANGE);
+      progress.set(o.region, Math.max(progress.get(o.region) || 0, Math.min(99, Math.floor(fraction * 100))));
       return track;
     });
     tracks = next;

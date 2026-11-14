@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createVisionSession, loadVisionModels } from '../src/lib/vision-session.js';
-import { face, hand } from './helpers/landmarks.js';
+import { face, hand, regionHand } from './helpers/landmarks.js';
 
 function fixture(options = {}) {
   let nextId = 0, closed = 0;
@@ -182,5 +182,38 @@ test('a frozen video clears detected regions during tracking before video resume
   assert.equal(f.session.confirmScan(), false);
   f.tick(5100);
   assert.equal(f.last.phase, 'scanning');
+  f.session.stop();
+});
+
+test('completing five regions emits one timestamped completion and releases inference', async () => {
+  const completedAt = Date.parse('2026-11-14T09:00:00+09:00');
+  const f = fixture({ now: () => completedAt, createId: () => 'test-completion-session' });
+  await ready(f); f.session.confirmScan();
+  let timestamp = 1100;
+  for (const id of ['forehead', 'nose', 'leftCheek', 'rightCheek', 'chin']) {
+    for (let elapsed = 0; elapsed <= 2600 && f.callbacks.size; elapsed += 100) {
+      f.input.hands = [regionHand(id, elapsed)];
+      f.tick(timestamp); timestamp += 100;
+    }
+  }
+  assert.equal(f.last.phase, 'completed');
+  assert.equal(f.last.progress, 100);
+  assert.equal(f.last.completedAt, completedAt);
+  assert.equal(f.last.sessionId, 'test-completion-session');
+  assert.equal(f.updates.filter(update => update.phase === 'completed').length, 1);
+  assert.equal(f.callbacks.size, 0);
+  assert.equal(f.closed, 1);
+});
+
+test('an interrupted partial observation never emits a completion', async () => {
+  const f = fixture(); await ready(f); f.session.confirmScan();
+  for (let t = 1100; t <= 2000; t += 100) {
+    f.input.hands = [regionHand('rightCheek', t)]; f.tick(t);
+  }
+  assert.ok(f.last.progress > 0 && f.last.progress < 100);
+  f.input.faces = []; f.tick(2100);
+  assert.equal(f.last.progress, 0);
+  assert.equal(f.last.sessionId, null);
+  assert.equal(f.updates.some(update => update.phase === 'completed'), false);
   f.session.stop();
 });
