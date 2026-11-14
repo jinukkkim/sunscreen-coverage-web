@@ -22,6 +22,9 @@
 
 ## 연구·기술 근거
 
+- [FDA 자외선 차단제 시험 기준 (21 CFR 201.327)](https://www.fda.gov/media/85172/download) — SPF 시험에서 2mg/cm²로 제품을 도포하는 기준. 본 앱은 그 시험량을 면적 계산에 차용하며, 해당 인물·제품의 권장량이나 보호력 측정으로 해석하지 않음.
+- [MediaPipe Face Landmarker Web 문서](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) — 얼굴 랜드마크 모델 및 웹 실행 구성. 이 문서는 landmark 검출 API 근거이며 본 면적 환산의 정확도를 검증한 자료가 아님.
+
 - [Assessing Sunscreen Protection Using UV Photography: Descriptive Study](https://derma.jmir.org/2021/1/e24653/), 2021, DOI 10.2196/24653 — 원문 확인. 전용 UV 장비의 도포 관찰·일부 색조 제품 한계. 일반 RGB 기반 SunSense의 검증 논문이 아니다.
 - [Quantifying the visual appearance of sunscreens applied to the skin using indirect computer image colorimetry](https://pubmed.ncbi.nlm.nih.gov/29080360/), 2018 — 검색 초록에서 외관 색 차이 측정 확인. 직접 페이지 추출은 불완전. 보호 성능 측정으로 해석하지 않음.
 - [The erythema Q-score, an imaging biomarker for redness in skin inflammation](https://pubmed.ncbi.nlm.nih.gov/33113259/), 2021, DOI 10.1111/exd.14224 — 초록·공개 연구 내용 확인. 홍반 영상 분석의 가능성과 평가 필요성.

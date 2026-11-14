@@ -1,14 +1,17 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
-// /api/* goes to the recognition server (server/index.js). `allowedHosts` lets the dev server
-// answer when it is exposed through Tailscale (`tailscale serve`), whose hostnames end in .ts.net.
+// `allowedHosts` lets the dev server answer when it is exposed through Tailscale
+// (`tailscale serve`), whose hostnames end in .ts.net.
 export default defineConfig({
-  server: {
-    allowedHosts: ['.ts.net'],
-    proxy: { '/api': { target: process.env.API_ORIGIN ?? 'http://127.0.0.1:8787', changeOrigin: true } },
-  },
-  preview: {
-    allowedHosts: ['.ts.net'],
-    proxy: { '/api': { target: process.env.API_ORIGIN ?? 'http://127.0.0.1:8787', changeOrigin: true } },
+  server: { allowedHosts: ['.ts.net'] },
+  preview: { allowedHosts: ['.ts.net'] },
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        faceDose: fileURLToPath(new URL('./face-dose.html', import.meta.url)),
+      },
+    },
   },
 });

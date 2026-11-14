@@ -1,33 +1,46 @@
 import React from 'react';
-import Camera from './components/Camera.jsx';
+import RecognitionPanel from './components/RecognitionPanel.jsx';
+import CareDashboard from './components/CareDashboard.jsx';
 import ProductSetup from './components/ProductSetup.jsx';
+import { useCare } from './hooks/useCare.js';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Button } from '@astryxdesign/core/Button';
 
 export default function App() {
+  const model = useCare();
   return (
-    <div className="app">
-      <header><a className="brand" href="/">SunGuard</a><span>선크림 도포 인식</span></header>
-      <main>
-        <div className="intro">
-          <h1>빠뜨린 부위를 알아차리는 선케어</h1>
-          <p>카메라 입력부터 시작하세요. 도포 인식 기능은 준비 중입니다.</p>
-        </div>
-        <div className="workspace">
-          <Camera />
-          <section className="card" aria-labelledby="coverage-title">
-            <h2 id="coverage-title">도포 인식 결과</h2>
-            <p className="badge">인식 기능 연결 전</p>
-            <p>아직 분석 결과가 없습니다.</p>
-            <p className="muted">실제 인식 기능이 연결되면 이곳에 결과를 표시합니다.</p>
-          </section>
-        </div>
-        <div className="supporting">
-          <section className="card"><h2>자외선 정보</h2><p>기상 데이터 연결 준비 중</p></section>
-          <ProductSetup />
-          <section className="card"><h2>덧바름 알림</h2><p>알림 설정 기능 준비 중</p></section>
-        </div>
-        <p className="notice">일반 카메라를 이용한 실제 도포 인식 정확도는 아직 검증되지 않았습니다. 도포량과 자외선 차단력을 측정하지 않습니다.</p>
-      </main>
-      <footer>2026 SunGuard contributors</footer>
-    </div>
+    <VStack gap={6} padding={6} maxWidth={1120} style={{ marginInline: 'auto' }}>
+      <HStack as="header" hAlign="between" vAlign="center" wrap="wrap" gap={3}>
+        <Text type="large" weight="bold">SunGuard</Text>
+        <Text type="supporting">매일 이어가는 선케어</Text>
+        <Button label="얼굴 크기·사용량 가이드" onClick={() => window.location.assign('/face-dose.html')} />
+      </HStack>
+      <Divider />
+      <VStack as="main" gap={6}>
+        <VStack gap={2}>
+          <Heading level={1}>선크림 도포 인식</Heading>
+          <Text>얼굴을 먼저 맞춘 뒤 이마·코·양 볼·턱에서 손으로 펴 바르는 동작을 관찰합니다.</Text>
+        </VStack>
+        <RecognitionPanel onComplete={model.completeMotion} />
+        <Divider />
+        <VStack gap={2}>
+          <Heading level={2}>오늘의 선케어 타임라인</Heading>
+          <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
+        </VStack>
+        <CareDashboard model={model} />
+        <Divider />
+        <VStack gap={2}>
+          <Heading level={2}>내 선크림</Heading>
+          <Text>사용 중인 선크림의 라벨을 사진으로 읽어 등록하고, 표기된 SPF·PA에 맞는 안내를 확인하세요.</Text>
+        </VStack>
+        <ProductSetup />
+      </VStack>
+      <Divider />
+      <Text as="p" type="supporting">2026 SunGuard contributors · 시각 기준: 대한민국(Asia/Seoul)</Text>
+    </VStack>
   );
 }

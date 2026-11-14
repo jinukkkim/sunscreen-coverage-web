@@ -16,13 +16,14 @@
 ## 경로
 
 ```
-브라우저 ──(동의 체크 후) POST /api/recognize {images:[{mimeType,data(base64)}]}──▶ server/index.js
-server/index.js ──(메모리에서 그대로 전달)──▶ Google Gemini generateContent API
+브라우저 ──(동의 체크 후) POST /api/recognize {images:[{mimeType,data(base64)}]}──▶ server/app.js (Express)
+server/recognize.js ──(메모리에서 그대로 전달)──▶ Google Gemini generateContent API
                 ◀── JSON(브랜드·제품명·SPF·PA·제형·내수성·전성분·신뢰도) ──
 브라우저 ◀── 검증된 JSON ── (사용자가 확인·수정 후 localStorage에 저장)
 ```
 
-- 분석 서버는 팀원 컴퓨터에서 실행하고 Tailscale(`tailscale serve`)로 노출한다. HTTPS 종단은 Tailscale이 담당한다.
+- 앱 서버(`npm run dev` / `npm start`)가 UV API와 같은 프로세스로 제공하며, 팀원 컴퓨터에서 Tailscale(`tailscale serve`)로 노출한다. HTTPS 종단은 Tailscale이 담당한다.
+- 1차 모델이 혼잡하거나 35초를 넘기면 같은 사진을 `gemini-3.5-flash-lite`에 한 번 더 보낸다. 전송 대상은 동일한 Google Gemini API다.
 - API 키는 서버 환경 변수(`GEMINI_API_KEY`)에만 있고 브라우저로 내려가지 않는다. 키는 요청 헤더(`x-goog-api-key`)로 보내며 URL에 넣지 않는다.
 
 ## 보관 정책

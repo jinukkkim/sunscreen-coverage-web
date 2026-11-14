@@ -74,11 +74,11 @@ Solution {
 | `src/lib/productStorage.js` | `loadProfile/saveProfile/clearProfile(storage)` — storage 주입, 키 `sunguard.product.v1`, 손상 데이터는 null | 같은 파일 |
 | `src/lib/image.js` | `checkImageFile`, `downscaleImage`(긴 변 1280px, JPEG 0.85) | 수동(브라우저 전용) |
 | `src/lib/labelRecognition.js` | `createVisionAdapter`(fetch 주입·타임아웃·취소), `recognizeLabel`, `draftFromRecognition`, `needsReview` | `tests/labelRecognition.test.js` |
-| `src/components/ProductSetup.jsx` | 상태 머신 `idle → recognizing → choose → draft`, 동의 체크, 후보 선택, 폼, 저장 | 수동 |
-| `src/components/ProductSolution.jsx` | 저장된 프로필 + 솔루션 문장 | 수동 |
+| `src/components/ProductSetup.jsx` | Astryx 컴포넌트. 상태 머신 `idle → recognizing → choose → draft`, 동의 체크, 후보 선택(최대 3), 완전한 후보는 즉시 등록, 결측 시 폼, 등록 후 수정 | 수동 |
+| `src/components/ProductSolution.jsx` | Astryx 컴포넌트. 저장된 프로필, 활동 환경 안내(Banner), 솔루션 문장, SPF·PA 설명과 기준표 | 수동 |
 | `server/recognize.js` | `buildPrompt`, `RESPONSE_SCHEMA`, `validateImages`, `parseModelOutput`, `createGeminiCaller`, `createRecognizeHandler` | `tests/recognize.test.js` |
-| `server/index.js` | `POST /api/recognize`, `GET /api/health`, `dist/` 정적 서빙 | 수동 |
-| `vite.config.js` | `/api` 프록시, `.ts.net` 호스트 허용 | — |
+| `server/app.js` | `POST /api/recognize` 라우트(JSON 6MB 제한, 413/400 매핑), `/api/health`에 `recognitionConfigured` | 수동 |
+| `vite.config.js` | `.ts.net` 호스트 허용 (API는 같은 출처라 프록시 불필요) | — |
 | `tests/fixtures/recognition/` | 모델 응답 고정 픽스처(완전 라벨·앞면만·범위 밖·비JSON) | — |
 
 테스트는 전부 `node --test`로 돌고 **실물 선크림이 필요하지 않다**. 모델 호출은 fetch를 주입해 가짜 응답으로 검증한다.
@@ -92,7 +92,7 @@ Solution {
 
 ### 5.2 배포: Tailscale
 
-팀원 컴퓨터에서 `npm run server`(기본 `127.0.0.1:8787`)와 `npm run dev`를 띄우고 `tailscale serve --bg 5173`으로 노출한다. HTTPS는 Tailscale이 종단하므로 휴대폰 카메라·파일 선택이 동작한다. Vite 6은 모르는 Host를 거절하므로 `allowedHosts: ['.ts.net']`을 설정했다. 빌드 배포 시에는 `npm run build` 후 `node server/index.js`가 `dist/`와 `/api`를 함께 서빙하고 그 포트를 `tailscale serve`한다.
+`main`의 Express 서버(`server/index.js` → `server/app.js`)가 Vite 미들웨어와 `/api/*`를 한 프로세스(`npm run dev`, 기본 5173)로 제공하므로, `/api/recognize`는 `server/app.js`에 라우트로 올린다. 팀원 컴퓨터에서 `npm run dev`를 띄우고 `tailscale serve --bg 5173`으로 노출한다. HTTPS는 Tailscale이 종단하므로 휴대폰 카메라·파일 선택이 동작한다. Vite 6은 모르는 Host를 거절하므로 `vite.config.js`에 `allowedHosts: ['.ts.net']`을 둔다. 운영은 `npm run build` 후 `npm start`.
 
 ### 5.3 프롬프트 원칙 (`buildPrompt`)
 
@@ -122,6 +122,10 @@ Solution {
 ## 7. 카메라 충돌에 대한 결정
 
 제품 사진은 `<input type="file" accept="image/*" capture="environment">`로 OS 카메라 앱을 호출한다. `getUserMedia` 스트림을 열지 않으므로 `Camera.jsx`(얼굴용 전면 스트림)와 장치를 다투지 않는다. 단, 모바일에서 얼굴 카메라가 켜진 상태로 OS 카메라 앱이 뜨면 OS가 기존 스트림을 끊을 수 있다. 이건 `Camera.jsx`의 `status`가 그대로 `active`로 남는 UI 불일치로 나타날 수 있으며, 해결은 기능 1 담당과 함께 `visibilitychange`에서 스트림 상태를 재확인하는 방식으로 한다(후속).
+
+## 7.1 활동 환경 안내
+
+`activityGuidance(profile)`는 라벨의 SPF·PA를 소비자 가이드 표(실내 15~30/PA+~++, 일상 30~50/PA+++, 장시간 야외 50+/PA++++)와 비교해 "… 기준으로 '<환경>'에 맞는 선크림을 사용하고 계십니다"를 만든다. 두 지수 중 낮은 쪽이 등급을 정하고, 하나만 있으면 그 사실을 문장에 덧붙인다. 코드에서 결정적으로 계산하며 모델을 호출하지 않는다(규칙이 3행이고, 모델 지연·표현 변동이 근거를 흐리기 때문). 보호 시간 계산이 아님을 화면에 명시한다.
 
 ## 8. 후속 작업
 
