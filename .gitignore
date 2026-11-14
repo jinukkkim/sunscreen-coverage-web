@@ -29,3 +29,6 @@ coverage/
 .superpowers/
 .pr-review/
 qa/
+
+# Generated local vision models and SDK runtime
+/public/vision/

@@ -46,3 +46,9 @@ npm run preview
 카메라 자동 테스트는 모의 스트림으로 수명 관리를 검사합니다. 실제 기기에서 권한 허용·거부, 영상 표시, 끄기 후 카메라 해제는 별도로 확인해야 합니다.
 
 공유 조사 자료는 [문서 목차](docs/README.md)에서 확인할 수 있습니다.
+
+## 얼굴·손 모델 자산 준비
+
+`@mediapipe/tasks-vision` 1.2.3과 공식 float16/1 모델을 고정한다. `npm run dev`와 `npm run build`는 먼저 `npm run prepare:vision`을 실행한다. 첫 실행에는 Google 모델 배포 호스트(`storage.googleapis.com`)에서 모델 두 개를 다운로드할 네트워크가 필요하며 SHA-256을 확인한다. 설치한 패키지의 WASM도 `public/vision/`에 복사한다. 준비된 모델은 재검증 후 재사용하므로 이후에는 다운로드가 필요 없다.
+
+실패하면 연결 상태를 확인한 뒤 `npm run prepare:vision`으로 재시도한다. 생성 자산은 Git에 포함하지 않는다. 실행 중 모델·WASM은 앱과 같은 출처의 `/vision/`에서 제공한다. 이 준비 과정은 얼굴 영상 업로드를 포함하지 않는다. 라이선스는 [제3자 고지](THIRD_PARTY_NOTICES.md)에 기록한다.
