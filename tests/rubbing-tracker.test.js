@@ -38,7 +38,7 @@ test('rejects a static hand, tiny jitter, short pass and a hand outside the face
   assert.equal(status(tracker), 'pending');
 });
 
-test('does not mistake head movement for rubbing', () => {
+test('does not mistake joint head and hand translation for rubbing', () => {
   const tracker = createRubbingTracker();
   for (let t = 0; t <= 3000; t += 100) {
     const offset = .03 * Math.sin(t / 400);
@@ -97,4 +97,14 @@ test('air rubbing can pass: motion observations do not certify physical contact 
   const tracker = createRubbingTracker();
   feed(tracker, 2300, 100, 0, t => hand(xAt(t), .53).map(p => ({ ...p, z: -10 })));
   assert.equal(status(tracker), 'detected');
+});
+
+test('a fixed image-space hand with only the head moving cannot register rubbing', () => {
+  const tracker = createRubbingTracker();
+  for (let t = 0; t <= 3000; t += 100) {
+    const offset = .02 * Math.sin(2 * Math.PI * t / 800);
+    const shifted = getFaceGeometry(face().map(p => ({ ...p, x: p.x + offset })), dimensions);
+    tracker.update({ geometry: shifted, hands: [hand(.32, .53)], timestampMs: t });
+  }
+  assert.equal(tracker.snapshot().detectedCount, 0);
 });

@@ -26,11 +26,11 @@ export function createRubbingTracker() {
       const region = locateRegion(geometry, points);
       const inside = points.filter(p => locateRegion(geometry, [p]) === region);
       if (!region || inside.length < 2) return [];
-      const positions = inside.map(geometry.toFacePoint);
-      return [{ region, position: {
-        x: positions.reduce((sum, p) => sum + p.x, 0) / positions.length,
-        y: positions.reduce((sum, p) => sum + p.y, 0) / positions.length,
-      } }];
+      const imagePosition = {
+        x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+        y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
+      };
+      return [{ region, imagePosition, position: geometry.toFacePoint(imagePosition) }];
     });
     const candidates = observations.map(o => tracks.filter(t => t.region === o.region && distance(t.position, o.position) < MATCH_DISTANCE));
     const next = observations.map((o, index) => {
@@ -39,7 +39,10 @@ export function createRubbingTracker() {
       const previous = unique ? candidate : null;
       const step = previous ? distance(previous.position, o.position) : 0;
       const speed = dt ? step / (dt / 1000) : 0;
-      const moving = previous && speed >= MIN_SPEED && speed <= MAX_SPEED;
+      // Both screen-space and face-relative movement are needed to reject head-only motion.
+      const imageStep = previous ? distance(geometry.toFacePoint(previous.imagePosition), o.position) : 0;
+      const imageSpeed = dt ? imageStep / (dt / 1000) : 0;
+      const moving = previous && speed >= MIN_SPEED && speed <= MAX_SPEED && imageSpeed >= MIN_SPEED && imageSpeed <= MAX_SPEED;
       const continuing = previous && timestampMs - previous.lastMove <= STILL_RESET_MS && speed <= MAX_SPEED;
       const track = continuing ? { ...previous, ...o } : {
         ...o, activeMs: 0, path: 0, minX: o.position.x, maxX: o.position.x,

@@ -160,3 +160,27 @@ test('model loading uses local assets and configures multi-face rejection and tw
   assert.deepEqual(paths, ['/vision/wasm', '/vision/face_landmarker.task', '/vision/hand_landmarker.task']);
   models.close();
 });
+
+test('a frozen video invalidates a ready scan before another frame arrives', async () => {
+  const f = fixture(); await ready(f);
+  for (let t = 1100; t <= 5000; t += 100) f.tick(t, false);
+  assert.equal(f.last.phase, 'scanning');
+  assert.equal(f.session.confirmScan(), false);
+  f.session.stop();
+});
+
+test('a frozen video clears detected regions during tracking before video resumes', async () => {
+  const f = fixture(); await ready(f); f.session.confirmScan();
+  for (let t = 1100; t <= 3400; t += 100) {
+    f.input.hands = [hand(.30 + .04 * (1 - Math.abs((t % 400) / 200 - 1)), .53)];
+    f.tick(t);
+  }
+  assert.equal(f.last.detectedCount, 1);
+  for (let t = 3500; t <= 5000; t += 100) f.tick(t, false);
+  assert.equal(f.last.phase, 'scanning');
+  assert.equal(f.last.detectedCount, 0);
+  assert.equal(f.session.confirmScan(), false);
+  f.tick(5100);
+  assert.equal(f.last.phase, 'scanning');
+  f.session.stop();
+});

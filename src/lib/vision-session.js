@@ -56,11 +56,14 @@ export function createVisionSession({
       scanAgain('영상을 다시 확인한 뒤 부위를 확인해 주세요.'); lastInference = null;
       queue(token); return;
     }
+    if (lastInference !== null && timestamp - lastInference > 500) {
+      scanAgain('영상이 잠시 멈췄습니다. 부위를 다시 확인해 주세요.');
+      lastInference = null;
+    }
     if (video.currentTime === lastVideoTime || (lastInference !== null && timestamp - lastInference < 100)) {
       queue(token); return;
     }
     try {
-      if (lastInference !== null && timestamp - lastInference > 500) scanAgain('영상이 잠시 멈췄습니다. 부위를 다시 확인해 주세요.');
       lastInference = timestamp; lastVideoTime = video.currentTime;
       const faces = models.face.detectForVideo(video, timestamp).faceLandmarks;
       if (faces.length !== 1) {
