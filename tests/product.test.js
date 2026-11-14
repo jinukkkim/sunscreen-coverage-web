@@ -111,5 +111,5 @@ test('activityGuidance explains partial and missing ratings', () => {
 
 test('activityGuidance sentence names the rating and the environment', () => {
   assert.equal(activityGuidance(profile({ spf: 50, spfPlus: true, paGrade: 4 })).sentence,
-    "SPF 50+ · PA++++ 기준으로 '장시간 야외 · 등산 · 해변' 활동 환경에 맞는 선크림을 사용하고 계십니다.");
+    "SPF 50+ · PA++++ 기준으로 '장시간 야외 · 등산 · 해변'에 맞는 선크림을 사용하고 계십니다.");
 });

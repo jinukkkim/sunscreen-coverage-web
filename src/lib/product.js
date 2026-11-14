@@ -164,7 +164,7 @@ export function activityGuidance(profile) {
     profile.spf !== null ? `SPF ${profile.spf}${profile.spfPlus ? '+' : ''}` : null,
     profile.paGrade !== null ? `PA${'+'.repeat(profile.paGrade)}` : null,
   ].filter(Boolean).join(' · ');
-  const sentence = `${rating} 기준으로 '${entry.label}' 활동 환경에 맞는 선크림을 사용하고 계십니다.`;
+  const sentence = `${rating} 기준으로 '${entry.label}'에 맞는 선크림을 사용하고 계십니다.`;
   const caveat = basis === 'both' ? '' : basis === 'spf-only' ? ' PA 표기가 없어 SPF만으로 판단했습니다.' : ' SPF 표기가 없어 PA만으로 판단했습니다.';
   return { level, entry, basis, sentence: sentence + caveat };
 }
