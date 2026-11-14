@@ -172,18 +172,21 @@ function averageConfidence(confidence) {
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.
-// Transient provider errors (503 high demand, 429) are retried once after a short pause, then
-// once more on the fallback model, so a busy spike does not fail the user's photo.
+// Budget: primary model gets one attempt of `timeoutMs`; on a transient failure (503 high demand,
+// 429, timeout) the fallback model gets one attempt of `fallbackTimeoutMs`. The sum stays under the
+// client's 100 s so the user sees a result or an error, never a silent stall.
 export function createGeminiCaller({
   apiKey, model = 'gemini-3.8-flash', fallbackModel = 'gemini-3.5-flash-lite', fetch = globalThis.fetch,
-  timeoutMs = 90_000, thinkingLevel = 'low', retryDelayMs = 1500, log = console.error, sleep = ms => new Promise(r => setTimeout(r, ms)),
+  timeoutMs = 35_000, fallbackTimeoutMs = 45_000, thinkingLevel = 'low', retryDelayMs = 1000,
+  log = console.error, sleep = ms => new Promise(r => setTimeout(r, ms)),
 }) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
-  async function attempt(targetModel, { prompt, images }) {
+  async function attempt(targetModel, { prompt, images }, budgetMs) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent`;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const started = Date.now();
+    const timer = setTimeout(() => controller.abort(), budgetMs);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -217,7 +220,10 @@ export function createGeminiCaller({
       return text;
     } catch (error) {
       if (error instanceof RecognitionError) throw error;
-      if (error.name === 'AbortError') throw new RecognitionError('timeout', '분석 시간이 초과됐습니다.', 504);
+      if (error.name === 'AbortError') {
+        log(`[recognize] ${targetModel} timed out after ${Date.now() - started} ms`);
+        throw new RecognitionError('timeout', '분석 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.', 504);
+      }
       throw new RecognitionError('model-unavailable', '분석 서비스에 연결하지 못했습니다.', 502);
     } finally {
       clearTimeout(timer);
@@ -228,17 +234,12 @@ export function createGeminiCaller({
 
   return async function callModel(request) {
     try {
-      return await attempt(model, request);
+      return await attempt(model, request, timeoutMs);
     } catch (first) {
-      if (!transient(first)) throw first;
+      if (!transient(first) || !fallbackModel || fallbackModel === model) throw first;
       await sleep(retryDelayMs);
-      try {
-        return await attempt(model, request);
-      } catch (second) {
-        if (!transient(second) || !fallbackModel || fallbackModel === model) throw second;
-        log(`[recognize] falling back to ${fallbackModel}`);
-        return attempt(fallbackModel, request);
-      }
+      log(`[recognize] falling back to ${fallbackModel}`);
+      return attempt(fallbackModel, request, fallbackTimeoutMs);
     }
   };
 }

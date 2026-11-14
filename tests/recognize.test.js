@@ -165,7 +165,7 @@ test('parseModelOutput puts the top-level reading first when candidates disagree
 });
 
 
-test('gemini caller retries a busy model once, then falls back to the lite model', async () => {
+test('gemini caller falls back to the lite model when the primary is busy', async () => {
   const calls = [];
   const fetch = async url => {
     calls.push(url);
@@ -174,10 +174,23 @@ test('gemini caller retries a busy model once, then falls back to the lite model
   };
   const call = createGeminiCaller({ apiKey: 'k', fetch, log: () => {}, sleep: async () => {} });
   assert.equal(await call({ prompt: 'p', images: [jpeg()] }), '{"ok":1}');
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
   assert.match(calls[0], /gemini-3\.8-flash/);
-  assert.match(calls[1], /gemini-3\.8-flash/);
-  assert.match(calls[2], /gemini-3\.5-flash-lite/);
+  assert.match(calls[1], /gemini-3\.5-flash-lite/);
+});
+
+test('gemini caller falls back when the primary times out', async () => {
+  const calls = [];
+  const fetch = (url, init) => {
+    calls.push(url);
+    if (url.includes('gemini-3.8-flash')) return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '{"ok":2}' }] } }] }) });
+  };
+  const logged = [];
+  const call = createGeminiCaller({ apiKey: 'k', fetch, timeoutMs: 5, log: m => logged.push(m), sleep: async () => {} });
+  assert.equal(await call({ prompt: 'p', images: [jpeg()] }), '{"ok":2}');
+  assert.equal(calls.length, 2);
+  assert.match(logged[0], /timed out/);
 });
 
 test('gemini caller does not retry non-transient failures', async () => {
@@ -191,5 +204,5 @@ test('gemini caller gives up after the fallback is also busy', async () => {
   let n = 0;
   const call = createGeminiCaller({ apiKey: 'k', fetch: async () => { n += 1; return { ok: false, status: 503, text: async () => 'busy' }; }, log: () => {}, sleep: async () => {} });
   await assert.rejects(call({ prompt: 'p', images: [jpeg()] }), { providerStatus: 503, message: /혼잡/ });
-  assert.equal(n, 3);
+  assert.equal(n, 2);
 });
