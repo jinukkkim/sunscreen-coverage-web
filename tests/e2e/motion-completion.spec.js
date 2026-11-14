@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { face, regionHand } from '../helpers/landmarks.js';
 import { formatTime } from '../../src/lib/reapplication.js';
 
@@ -28,13 +29,13 @@ test('partial motion progresses, completion records once and starts the UV timer
       window.motionFixture.geoCalls++;
       success({ coords: { latitude: 37.5665, longitude: 126.978, accuracy: 30 }, timestamp: Date.now() });
     } } });
-  }, { face: face(), frames });
+  }, { face: face(), frames, connections: FaceLandmarker.FACE_LANDMARKS_TESSELATION });
   // Replace only the lazy SDK chunk with synthetic landmarks. The actual app,
   // vision-session, rubbing tracker, progress UI and persistence run unchanged.
   await page.route('**/assets/vision_bundle-*.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
-      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}], createFromOptions: async () => ({
+      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: window.motionFixture.connections, createFromOptions: async () => ({
         detectForVideo: () => ({faceLandmarks: window.motionFixture.faceVisible === false ? [] : [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
       })};
@@ -84,7 +85,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByText('동작 관찰 중', { exact: true })).toBeVisible();
+  await expect(page.getByText('동작 관찰 중', { exact: true }).and(page.locator('[data-type="label"]'))).toBeVisible();
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   // Sustained loss requires confirmation but keeps the same accumulated progress.
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });

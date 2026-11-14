@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createCameraSession } from '../lib/camera.js';
 import { createVisionSession } from '../lib/vision-session.js';
-import { getDisplayPoint, getMeshSegments } from '../lib/face-regions.js';
-import { getCoverageVisual } from '../lib/coverage-visual.js';
+import { getDisplayPoint, getMeshSegments, getMeshTriangles } from '../lib/face-regions.js';
+import { getTriangleCoverage } from '../lib/coverage-visual.js';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
@@ -20,61 +20,6 @@ function tracePolygon(context, points) {
   context.beginPath();
   points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
   context.closePath();
-}
-
-function polygonBounds(points) {
-  const xs = points.map(point => point.x), ys = points.map(point => point.y);
-  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
-}
-
-function drawRegionFill(context, points, progress, exclusions, size) {
-  const visual = getCoverageVisual(progress);
-  const bounds = polygonBounds(points), height = bounds.bottom - bounds.top;
-  tracePolygon(context, points);
-  context.save();
-  context.clip();
-  context.beginPath();
-  context.rect(0, 0, size.width, size.height);
-  exclusions.forEach(hole => {
-    hole.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
-    context.closePath();
-  });
-  context.clip('evenodd');
-  context.fillStyle = 'rgba(34, 47, 40, 0.26)';
-  context.fillRect(bounds.left, bounds.top, bounds.right - bounds.left, height);
-  if (visual.fillFraction > 0) {
-    context.fillStyle = `rgba(${visual.color.join(', ')}, ${visual.opacity})`;
-    const fillHeight = height * visual.fillFraction;
-    context.fillRect(bounds.left, bounds.bottom - fillHeight, bounds.right - bounds.left, fillHeight);
-  }
-  context.restore();
-}
-
-function drawRegionMarker(context, points, index, progress, size) {
-  const visual = getCoverageVisual(progress);
-  tracePolygon(context, points);
-  context.lineWidth = Math.max(3, size.width / 150);
-  context.strokeStyle = 'rgba(18, 29, 24, 0.9)';
-  context.stroke();
-  tracePolygon(context, points);
-  context.lineWidth = Math.max(1.4, size.width / 330);
-  context.strokeStyle = 'rgba(255, 250, 240, 0.95)';
-  context.stroke();
-
-  const center = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length }), { x: 0, y: 0 });
-  const radius = Math.max(9, Math.min(13, size.width / 32));
-  context.beginPath();
-  context.arc(center.x, center.y, radius, 0, Math.PI * 2);
-  context.fillStyle = `rgba(${visual.color.join(', ')}, 0.96)`;
-  context.fill();
-  context.lineWidth = 2;
-  context.strokeStyle = 'rgba(18, 29, 24, 0.92)';
-  context.stroke();
-  context.font = `700 ${Math.max(10, Math.min(13, radius))}px system-ui`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillStyle = progress >= 45 ? 'rgba(34, 47, 40, 0.98)' : 'rgba(255, 250, 240, 0.98)';
-  context.fillText(String(index + 1), center.x, center.y + .5);
 }
 
 function FaceOverlay({ analysis, video }) {
@@ -103,33 +48,26 @@ function FaceOverlay({ analysis, video }) {
       videoWidth: source.videoWidth, videoHeight: source.videoHeight,
       stageWidth: size.width, stageHeight: size.height, mirrored: true,
     });
-    const progressById = new Map(analysis.regions.map(region => [region.id, region.progress]));
-    const displayRegions = analysis.geometry.regions.map((region, index) => ({
-      region, index, points: region.polygon.map(display), progress: progressById.get(region.id) ?? 0,
-    }));
-    const exclusions = analysis.geometry.exclusions.map(hole => hole.map(display));
-    displayRegions.forEach(({ points, progress }) => drawRegionFill(context, points, progress, exclusions, size));
     if (connections) {
+      for (const tile of getTriangleCoverage(getMeshTriangles(analysis.geometry, connections), analysis.regions)) {
+        tracePolygon(context, tile.points.map(display));
+        context.fillStyle = `rgba(${tile.visual.color.join(', ')}, ${tile.visual.opacity})`;
+        context.fill();
+      }
       context.save();
       context.beginPath();
       for (const [a, b] of getMeshSegments(analysis.geometry.landmarks, connections)) {
         const p = display(a), q = display(b); context.moveTo(p.x, p.y); context.lineTo(q.x, q.y);
       }
-      context.globalAlpha = .38; context.lineWidth = .7; context.lineCap = 'round';
-      context.strokeStyle = '#eef8f2'; context.shadowColor = '#eef8f2'; context.shadowBlur = 4;
+      // Fine contrast edges keep the tessellation visible on dark and cream tiles.
+      context.lineWidth = 1.2; context.lineCap = 'round';
+      context.strokeStyle = 'rgba(34, 47, 40, 0.32)';
+      context.stroke();
+      context.globalAlpha = .5; context.lineWidth = .45;
+      context.strokeStyle = '#eef8f2';
       context.stroke();
       context.restore();
     }
-    displayRegions.forEach(({ points, index, progress }) => drawRegionMarker(context, points, index, progress, size));
-    const outline = analysis.geometry.outline.map(display);
-    const xs = outline.map(p => p.x), ys = outline.map(p => p.y);
-    const x0 = Math.min(...xs) - 12, x1 = Math.max(...xs) + 12, y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 12;
-    const arm = Math.min(x1 - x0, y1 - y0) * .18;
-    context.beginPath();
-    for (const [x, y, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
-      context.moveTo(x, y + dy * arm); context.lineTo(x, y); context.lineTo(x + dx * arm, y);
-    }
-    context.strokeStyle = '#fffaf0'; context.lineWidth = 2.5; context.stroke();
     for (const hand of analysis.hands) for (const index of [8, 12, 16]) {
       const point = hand[index];
       if (!point || !Number.isFinite(point.x + point.y)) continue;
@@ -226,7 +164,7 @@ export default function Camera({ onAnalysisChange }) {
           {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
         <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
-        <Text type="supporting">어두운 영역에서 크림색으로 차오르는 정도는 구역별 동작 진행률입니다. 숫자 1–5는 아래 부위 목록과 연결되며 실제 도포량을 측정하지 않습니다. 완료 화면은 고정되고 새 도포 시작을 누르면 다시 관찰합니다.</Text>
+        <Text type="supporting">각 부위의 동작 진행률에 따라 삼각형이 어두운 색에서 크림색으로 채워집니다. 실제 도포량을 측정하는 값은 아닙니다. 완료 화면은 고정되고 새 도포 시작을 누르면 다시 관찰합니다.</Text>
         <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>
         <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
       </VStack>
