@@ -30,7 +30,8 @@
 
 - Main goal: sunscreen application recognition on the web. UV information, reminders, and ingredient analysis are supporting features.
 - Hand movement tracking does not prove actual sunscreen application, adequate amount, SPF, or UVA protection. Actual coverage recognition is not validated yet.
-- The stack, server requirements, and image data flow are not finalized. There is no application source or build/test command in this repository yet.
+- The skeleton uses React and Vite. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`. No backend or recognition model is connected yet.
+- Camera video stays in the browser preview; it is not stored or transmitted. Document image transmission before adding an external analysis service.
 - UI copy is Korean; code identifiers are English.
 - Shared research is in `docs/sunguard/`, indexed by `docs/README.md`, and is intended for GitHub.
 - Design documents go in `docs/superpowers/specs/`; implementation plans go in `docs/superpowers/plans/`.
