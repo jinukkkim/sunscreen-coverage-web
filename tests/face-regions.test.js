@@ -55,3 +55,13 @@ test('maps cover-cropped mirrored video points to the exact visible overlay', ()
   assert.equal(point.y, 75);
   assert.equal(getDisplayPoint({ x: .25, y: .25 }, { ...size, mirrored: false }).x < 200, true);
 });
+
+test('forehead follows the upper contour and brow line instead of clipping side and upper forehead skin', () => {
+  const geometry = getFaceGeometry(face(), dimensions);
+  for (const [x, y] of [[.4, .145], [.6, .145], [.32, .22], [.68, .22]]) {
+    assert.equal(locateRegion(geometry, [{ x, y }]), 'forehead', `${x},${y}`);
+  }
+  for (const [x, y] of [[.5, .10], [.35, .27], [.65, .27], [.37, .345], [.63, .345]]) {
+    assert.equal(locateRegion(geometry, [{ x, y }]), null, `${x},${y}`);
+  }
+});

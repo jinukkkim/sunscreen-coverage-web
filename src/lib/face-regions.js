@@ -6,7 +6,7 @@ export const REGIONS = [
 
 // MediaPipe canonical topology: left/right are the person's, before mirroring.
 const polygons = {
-  forehead: [54, 10, 284, 296, 9, 66],
+  forehead: [54, 103, 67, 109, 10, 338, 297, 332, 284, 300, 293, 334, 296, 336, 9, 107, 66, 105, 63, 70],
   nose: [168, 129, 98, 2, 327, 358],
   leftCheek: [345, 348, 423, 436, 432, 364, 376],
   rightCheek: [116, 119, 203, 216, 212, 135, 147],
