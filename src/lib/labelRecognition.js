@@ -14,7 +14,7 @@ export class LabelRecognitionError extends Error {
  * @param {{ fetch?: typeof fetch, endpoint?: string, timeoutMs?: number }} options
  * @returns {(images: { mimeType: string, data: string }[], signal?: AbortSignal) => Promise<object>}
  */
-export function createVisionAdapter({ fetch = globalThis.fetch, endpoint = '/api/recognize', timeoutMs = 45_000 } = {}) {
+export function createVisionAdapter({ fetch = globalThis.fetch, endpoint = '/api/recognize', timeoutMs = 100_000 } = {}) {
   return async function recognize(images, signal) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

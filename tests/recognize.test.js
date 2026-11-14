@@ -106,6 +106,7 @@ test('gemini caller sends the key in a header, requests JSON and extracts the te
   const body = JSON.parse(captured.init.body);
   assert.equal(body.generationConfig.response_mime_type, 'application/json');
   assert.deepEqual(body.generationConfig.response_schema, RESPONSE_SCHEMA);
+  assert.equal(body.generationConfig.thinking_config.thinking_level, 'low');
   assert.equal(body.contents[0].parts[0].text, 'p');
   assert.equal(body.contents[0].parts[1].inline_data.mime_type, 'image/jpeg');
 });

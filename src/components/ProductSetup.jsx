@@ -137,7 +137,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
             <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={mode === 'recognizing'} />
             제품 사진을 분석 서버를 거쳐 외부 AI 모델(Google Gemini)로 전송하는 데 동의합니다. 사진은 저장되지 않으며 얼굴 카메라 영상은 전송되지 않습니다.
           </label>
-          <p role="status">{mode === 'recognizing' ? `라벨을 읽고 있습니다. (${elapsed}초 경과 · 최대 45초)` : ''}</p>
+          <p role="status">{mode === 'recognizing' ? `라벨을 읽고 있습니다. (${elapsed}초 경과 · 보통 10~30초, 최대 100초)` : ''}</p>
           {error && <p role="alert">{error}</p>}
           <div className="actions">
             <button onClick={analyze} disabled={mode === 'recognizing'}>사진으로 읽기</button>

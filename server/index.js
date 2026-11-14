@@ -17,7 +17,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 
 const apiKey = process.env.GEMINI_API_KEY;
 const handler = apiKey
-  ? createRecognizeHandler({ callModel: createGeminiCaller({ apiKey, model: process.env.GEMINI_MODEL || undefined }), prompt: buildPrompt() })
+  ? createRecognizeHandler({ callModel: createGeminiCaller({ apiKey, model: process.env.GEMINI_MODEL || undefined, thinkingLevel: process.env.GEMINI_THINKING ?? 'low' }), prompt: buildPrompt() })
   : async () => ({ status: 503, body: { ok: false, code: 'not-configured', message: '분석 서버에 API 키가 설정되지 않았습니다.' } });
 
 function send(res, status, body, headers = {}) {

@@ -172,7 +172,7 @@ function averageConfidence(confidence) {
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.
-export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch = globalThis.fetch, timeoutMs = 30_000, log = console.error }) {
+export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch = globalThis.fetch, timeoutMs = 90_000, thinkingLevel = 'low', log = console.error }) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   return async function callModel({ prompt, images }) {
@@ -185,7 +185,13 @@ export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch =
         signal: controller.signal,
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }, ...images.map(i => ({ inline_data: { mime_type: i.mimeType, data: i.data } }))] }],
-          generationConfig: { temperature: 0, response_mime_type: 'application/json', response_schema: RESPONSE_SCHEMA },
+          generationConfig: {
+            temperature: 0,
+            response_mime_type: 'application/json',
+            response_schema: RESPONSE_SCHEMA,
+            // Label transcription does not need deep reasoning; low keeps latency down.
+            ...(thinkingLevel ? { thinking_config: { thinking_level: thinkingLevel } } : {}),
+          },
         }),
       });
       if (!response.ok) {
