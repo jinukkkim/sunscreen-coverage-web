@@ -1,7 +1,6 @@
 import express from 'express';
-import { createUvService } from './uv.js';
-import { createCurrentUvService } from './safemap-uv.js';
-import { CurrentUvError } from './current-uv-common.js';
+import { createUvService, UvError } from './uv.js';
+import { currentUvDetails } from '../src/lib/uv-details.js';
 import { buildPrompt, createGeminiCaller, createRecognizeHandler } from './recognize.js';
 
 const RECOGNIZE_BODY_LIMIT = '6mb';
@@ -12,7 +11,7 @@ export function createRecognizer({ apiKey = process.env.GEMINI_API_KEY, model = 
   return { configured: true, handle: createRecognizeHandler({ callModel, prompt: buildPrompt() }) };
 }
 
-export function createApp({ getUv = createUvService({ key: process.env.KMA_SERVICE_KEY }), recognizer = createRecognizer(), getCurrentUv = createCurrentUvService() } = {}) {
+export function createApp({ getUv = createUvService({ key: process.env.KMA_SERVICE_KEY }), recognizer = createRecognizer(), now = Date.now } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.get('/api/health', (_req, res) => res.json({ ok: true, uvConfigured: Boolean(process.env.KMA_SERVICE_KEY), recognitionConfigured: recognizer.configured }));
@@ -33,10 +32,15 @@ export function createApp({ getUv = createUvService({ key: process.env.KMA_SERVI
     if (typeof lat !== 'string' || typeof lon !== 'string' || !lat.trim() || !lon.trim() || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       return res.status(400).json({ error: '올바른 위도·경도가 필요합니다.', code: 'CURRENT_UV_INVALID_LOCATION' });
     }
-    try { res.json(await getCurrentUv(latitude, longitude)); }
+    try {
+      const forecast = await getUv(latitude, longitude);
+      const current = currentUvDetails(forecast, now());
+      if (!current) throw new UvError('현재 시간대의 유효한 기상청 UV 예보가 없습니다.', 502, 'NO_DATA');
+      res.json(current);
+    }
     catch (error) {
-      const known = error instanceof CurrentUvError;
-      res.status(known ? error.status : 502).json({ error: known ? error.message : '현재 지역 자외선지수 조회에 실패했습니다.', code: known ? error.code : 'CURRENT_UV_NETWORK_ERROR' });
+      const known = error instanceof UvError;
+      res.status(known ? error.status : 502).json({ error: known ? error.message : '현재 시간대 기상청 UV 예보 조회에 실패했습니다.', code: known ? error.code : 'UPSTREAM_ERROR' });
     }
   });
   // Product label photos: forwarded to the model in memory, never written to disk or logged.
