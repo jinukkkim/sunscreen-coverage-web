@@ -12,12 +12,14 @@
 4. [기본 카메라 도포 인식의 가능성과 한계](sunguard/03-recognition-feasibility.md)
 5. [출처와 확인 범위](sunguard/04-sources.md)
 6. [도포 동작 검증 기록](sunguard/05-motion-validation.md)
+7. [얼굴 면적·손가락 사용량 실험 가이드](sunguard/06-face-dose-guide.md)
 
 ## 구현 설계
 
 - [얼굴 스캔 후 부위별 도포 동작 인식](superpowers/specs/2026-11-14-face-first-motion-recognition-design.md)
 - [얼굴 스캔·도포 동작 인식 구현 계획](superpowers/plans/2026-11-14-face-first-motion-recognition.md)
 - [재도포 기록·UV별 알림·하루 타임라인](superpowers/specs/2026-11-14-reapplication.md)
+- [동작 진행률·완료 시각 자동 기록·UV별 알림 연결](superpowers/specs/2026-11-14-motion-completion-reminders.md)
 
 ## 문서 관리
 

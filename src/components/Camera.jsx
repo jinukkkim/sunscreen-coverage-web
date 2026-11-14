@@ -9,7 +9,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
 import { Section } from '@astryxdesign/core/Section';
 
-const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0 };
+const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0, progress: 0, sessionId: null, completedAt: null };
 // Same lazy chunk vision-session already loads; only the connection constants are read here.
 let meshConnections = null;
 const loadMeshConnections = () => meshConnections ??= import('@mediapipe/tasks-vision')
@@ -35,7 +35,7 @@ function FaceOverlay({ analysis, video }) {
     element.width = size.width * ratio; element.height = size.height * ratio;
     const context = element.getContext('2d');
     context.scale(ratio, ratio);
-    if (!analysis.geometry || !source?.videoWidth || !size.width) return;
+    if (analysis.phase === 'completed' || !analysis.geometry || !source?.videoWidth || !size.width) return;
     const display = point => getDisplayPoint(point, {
       videoWidth: source.videoWidth, videoHeight: source.videoHeight,
       stageWidth: size.width, stageHeight: size.height, mirrored: true,
@@ -105,7 +105,7 @@ export default function Camera({ onAnalysisChange }) {
       video: video.current, onUpdate: update => {
         if (!alive.current) return;
         setAnalysis(update);
-        onChange.current?.({ phase: update.phase, regions: update.regions, detectedCount: update.detectedCount });
+        onChange.current?.({ phase: update.phase, regions: update.regions, detectedCount: update.detectedCount, progress: update.progress, sessionId: update.sessionId, completedAt: update.completedAt });
       },
     });
     void vision.current.start();
@@ -147,7 +147,7 @@ export default function Camera({ onAnalysisChange }) {
         <VStack style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
           <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
           <FaceOverlay analysis={analysis} video={video} />
-          {status === 'active' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
+          {status === 'active' && analysis.phase !== 'completed' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
           {status !== 'active' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
         </VStack>
         <Text role="status">{status === 'active' ? analysis.reason || '카메라 사용 중' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</Text>
@@ -156,9 +156,10 @@ export default function Camera({ onAnalysisChange }) {
         <HStack wrap="wrap" gap={2}>
           <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle'} />
           <Button label={status === 'loading' ? '연결 취소' : '카메라 끄기'} onClick={stop} isDisabled={status === 'idle'} />
-          {status === 'active' && analysis.phase !== 'error' && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
+          {status === 'active' && !['error', 'completed'].includes(analysis.phase) && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
           {status === 'active' && analysis.phase === 'tracking' && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
           {status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
+          {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
         <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
         <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>

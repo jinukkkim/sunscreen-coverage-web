@@ -28,13 +28,16 @@ export function createVisionSession({
   scheduleFrame = callback => requestAnimationFrame(callback),
   cancelFrame = id => cancelAnimationFrame(id),
   isVisible = () => document.visibilityState === 'visible',
+  now = Date.now,
+  createId = () => crypto.randomUUID(),
 }) {
   const tracker = createRubbingTracker();
   let generation = 0, models = null, frame = null, phase = 'stopped';
   let lastVideoTime = -1, lastInference = null, stableSince = null, anchor = null, geometry = null;
-  const blank = () => { tracker.reset(); stableSince = null; anchor = null; geometry = null; };
+  let sessionId = null, completedAt = null;
+  const blank = () => { tracker.reset(); stableSince = null; anchor = null; geometry = null; sessionId = null; completedAt = null; };
   function emit(reason = '', hands = []) {
-    onUpdate({ phase, reason, geometry, hands, ...tracker.snapshot() });
+    onUpdate({ phase, reason, geometry, hands, sessionId, completedAt, ...tracker.snapshot() });
   }
   function scanAgain(reason) { blank(); phase = 'scanning'; emit(reason); }
   function release() {
@@ -83,6 +86,12 @@ export function createVisionSession({
         } else {
           const hands = models.hand.detectForVideo(video, timestamp).landmarks;
           tracker.update({ geometry, hands, timestampMs: timestamp });
+          if (tracker.snapshot().detectedCount === geometry.regions.length && tracker.snapshot().progress === 100) {
+            phase = 'completed'; completedAt = now();
+            release();
+            emit('5구역 동작 관찰을 완료했습니다. 완료 시각을 기록하고 재도포 알림을 시작합니다.');
+            return;
+          }
           emit(hands.length ? '부위별 펴 바르는 동작을 관찰하고 있습니다.' : '손이 보이도록 펴 바르는 동작을 해 주세요.', hands);
         }
       }
@@ -108,7 +117,8 @@ export function createVisionSession({
   }
   function confirmScan() {
     if (phase !== 'ready') return false;
-    tracker.reset(); phase = 'tracking'; emit('손으로 선크림을 펴 발라 주세요.'); return true;
+    tracker.reset(); sessionId = createId(); completedAt = null;
+    phase = 'tracking'; emit('손으로 선크림을 펴 발라 주세요.'); return true;
   }
   function reset() {
     if (models) scanAgain('부위를 다시 확인해 주세요.');

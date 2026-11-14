@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRubbingTracker } from '../src/lib/rubbing-tracker.js';
 import { getFaceGeometry } from '../src/lib/face-regions.js';
-import { face, hand, dimensions } from './helpers/landmarks.js';
+import { face, hand, dimensions, regionHand } from './helpers/landmarks.js';
 const geometry = getFaceGeometry(face(), dimensions);
 const xAt = t => .30 + .04 * (1 - Math.abs((t % 400) / 200 - 1));
 const status = (tracker, id = 'rightCheek') => tracker.snapshot().regions.find(r => r.id === id).status;
@@ -107,4 +107,46 @@ test('a fixed image-space hand with only the head moving cannot register rubbing
     tracker.update({ geometry: shifted, hands: [hand(.32, .53)], timestampMs: t });
   }
   assert.equal(tracker.snapshot().detectedCount, 0);
+});
+
+test('valid motion raises partial progress before detection and preserves it between regions', () => {
+  const tracker = createRubbingTracker();
+  const values = [];
+  for (let t = 0; t <= 1000; t += 100) {
+    tracker.update({ geometry, hands: [regionHand('rightCheek', t)], timestampMs: t });
+    values.push(tracker.snapshot().regions.find(r => r.id === 'rightCheek').progress);
+  }
+  assert.ok(values.at(-1) > 0 && values.at(-1) < 100);
+  assert.ok(values.every((value, i) => i === 0 || value >= values[i - 1]));
+  const previous = tracker.snapshot().progress;
+  tracker.update({ geometry, hands: [], timestampMs: 1100 });
+  assert.equal(tracker.snapshot().progress, previous);
+  assert.equal(tracker.snapshot().detectedCount, 0);
+  tracker.reset();
+  assert.equal(tracker.snapshot().progress, 0);
+});
+
+test('all five independently detected regions are required for total progress of 100', () => {
+  const tracker = createRubbingTracker();
+  let time = 0;
+  for (const id of ['forehead', 'nose', 'leftCheek', 'rightCheek', 'chin']) {
+    for (let elapsed = 0; elapsed <= 2500; elapsed += 100) {
+      tracker.update({ geometry, hands: [regionHand(id, elapsed)], timestampMs: time });
+      time += 100;
+    }
+    assert.equal(tracker.snapshot().regions.find(region => region.id === id).progress, 100, id);
+    if (id !== 'chin') assert.ok(tracker.snapshot().progress < 100);
+  }
+  assert.equal(tracker.snapshot().progress, 100);
+  assert.equal(tracker.snapshot().detectedCount, 5);
+});
+
+test('static hands and head-only movement cannot raise progress', () => {
+  const tracker = createRubbingTracker();
+  for (let t = 0; t <= 3000; t += 100) {
+    const offset = .02 * Math.sin(2 * Math.PI * t / 800);
+    const shifted = getFaceGeometry(face().map(p => ({ ...p, x: p.x + offset })), dimensions);
+    tracker.update({ geometry: shifted, hands: [hand(.32, .53)], timestampMs: t });
+  }
+  assert.equal(tracker.snapshot().progress, 0);
 });
