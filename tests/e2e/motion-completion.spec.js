@@ -58,7 +58,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await page.goto('/');
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
+  await page.locator('#motion').getByRole('button', { name: '카메라 켜기', exact: true }).click();
   await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
@@ -109,7 +109,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
   await expect.poll(hasOverlay).toBe(true);
   await expect.poll(greenPixels).toBeGreaterThan(partialGreen * 2);
-  expect(await page.locator('video').evaluate(video => video.paused)).toBe(true);
+  expect(await page.locator('#motion video').evaluate(video => video.paused)).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
@@ -120,7 +120,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '새 도포 시작', exact: true }).click();
   await expect(overall).toHaveAttribute('aria-valuenow', '0');
-  await expect.poll(() => page.locator('video').evaluate(video => video.paused)).toBe(false);
+  await expect.poll(() => page.locator('#motion video').evaluate(video => video.paused)).toBe(false);
   await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
   await expect.poll(hasOverlay).toBe(false);
   await page.reload();

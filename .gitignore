@@ -35,3 +35,11 @@ playwright-report/
 
 # Generated local vision models and SDK runtime
 /public/vision/
+
+# Astryx theme editor previews and local edit history
+/themes/**/preview*.html
+/themes/**/preview*.png
+/themes/**/sheet*.html
+/themes/**/sheet*.png
+/themes/**/*.pictures.json
+/themes/**/*.history.json
