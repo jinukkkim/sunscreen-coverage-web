@@ -1,0 +1,77 @@
+export const REGIONS = [
+  { id: 'forehead', label: '이마' }, { id: 'nose', label: '코' },
+  { id: 'leftCheek', label: '왼쪽 볼' }, { id: 'rightCheek', label: '오른쪽 볼' },
+  { id: 'chin', label: '턱' },
+];
+
+// MediaPipe canonical topology: left/right are the person's, before mirroring.
+const polygons = {
+  forehead: [54, 10, 284, 296, 9, 66],
+  nose: [168, 129, 98, 2, 327, 358],
+  leftCheek: [345, 348, 423, 436, 432, 364, 376],
+  rightCheek: [116, 119, 203, 216, 212, 135, 147],
+  chin: [202, 18, 422, 400, 152, 176],
+};
+const outline = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
+const exclusions = [
+  [33, 160, 158, 133, 153, 144], [362, 385, 387, 263, 373, 380],
+  [61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91],
+];
+const required = [...new Set([1, 33, 263, ...outline, ...Object.values(polygons).flat(), ...exclusions.flat()])];
+const finitePoint = p => p && Number.isFinite(p.x) && Number.isFinite(p.y);
+
+function contains(polygon, point) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i], b = polygon[j];
+    if ((a.y > point.y) !== (b.y > point.y) &&
+      point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+export function getFaceGeometry(landmarks, { width, height }) {
+  if (!(width > 0 && height > 0) || !Number.isFinite(width + height) ||
+      !Array.isArray(landmarks) || required.some(i => !finitePoint(landmarks[i]))) return null;
+  const a = landmarks[33], b = landmarks[263];
+  const dx = (b.x - a.x) * width, dy = (b.y - a.y) * height;
+  const scale = Math.hypot(dx, dy);
+  if (scale < 1) return null;
+  const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const ux = dx / scale, uy = dy / scale;
+  function toFacePoint(p) {
+    const x = (p.x - center.x) * width, y = (p.y - center.y) * height;
+    return { x: (x * ux + y * uy) / scale, y: (-x * uy + y * ux) / scale };
+  }
+  const faceOutline = outline.map(i => landmarks[i]);
+  const nose = toFacePoint(landmarks[1]);
+  const clipped = faceOutline.some(p => p.x < .02 || p.x > .98 || p.y < .02 || p.y > .98);
+  // Initial conservative capture gates; calibrate on real devices before accuracy claims.
+  const reason = clipped ? '얼굴 전체가 화면 안에 들어오게 해 주세요.'
+    : scale / width < .12 ? '카메라에 조금 더 가까이 와 주세요.'
+    : Math.abs(Math.atan2(dy, dx)) > .26 || Math.abs(nose.x) > .25
+      ? '고개를 정면으로 맞춰 주세요.' : '';
+  return {
+    regions: REGIONS.map(region => ({ ...region, polygon: polygons[region.id].map(i => landmarks[i]) })),
+    outline: faceOutline, exclusions: exclusions.map(ids => ids.map(i => landmarks[i])),
+    toFacePoint, center: toFacePoint(landmarks[1]), quality: { ready: !reason, reason },
+  };
+}
+
+export function locateRegion(geometry, points) {
+  if (!geometry || !Array.isArray(points)) return null;
+  const votes = new Map();
+  for (const p of points) {
+    if (!finitePoint(p) || !contains(geometry.outline, p) || geometry.exclusions.some(poly => contains(poly, p))) continue;
+    const region = geometry.regions.find(region => contains(region.polygon, p));
+    if (region) votes.set(region.id, (votes.get(region.id) ?? 0) + 1);
+  }
+  const ranked = [...votes].sort((a, b) => b[1] - a[1]);
+  return ranked.length && (ranked.length === 1 || ranked[0][1] > ranked[1][1]) ? ranked[0][0] : null;
+}
+
+export function getDisplayPoint(point, { videoWidth, videoHeight, stageWidth, stageHeight, mirrored }) {
+  const scale = Math.max(stageWidth / videoWidth, stageHeight / videoHeight);
+  const x = point.x * videoWidth * scale - (videoWidth * scale - stageWidth) / 2;
+  return { x: mirrored ? stageWidth - x : x, y: point.y * videoHeight * scale - (videoHeight * scale - stageHeight) / 2 };
+}
