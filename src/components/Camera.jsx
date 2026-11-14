@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createCameraSession } from '../lib/camera.js';
 import { createVisionSession } from '../lib/vision-session.js';
-import { getDisplayPoint } from '../lib/face-regions.js';
+import { getDisplayPoint, getMeshSegments } from '../lib/face-regions.js';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
@@ -10,9 +10,20 @@ import { Button } from '@astryxdesign/core/Button';
 import { Section } from '@astryxdesign/core/Section';
 
 const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0, progress: 0, sessionId: null, completedAt: null };
+// Same lazy chunk vision-session already loads; only the connection constants are read here.
+let meshConnections = null;
+const loadMeshConnections = () => meshConnections ??= import('@mediapipe/tasks-vision')
+  .then(({ FaceLandmarker }) => FaceLandmarker.FACE_LANDMARKS_TESSELATION);
+
 function FaceOverlay({ analysis, video }) {
   const canvas = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [connections, setConnections] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (analysis.geometry && !connections) loadMeshConnections().then(next => alive && setConnections(next), () => {});
+    return () => { alive = false; };
+  }, [analysis.geometry, connections]);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
     observer.observe(canvas.current.parentElement);
@@ -29,30 +40,42 @@ function FaceOverlay({ analysis, video }) {
       videoWidth: source.videoWidth, videoHeight: source.videoHeight,
       stageWidth: size.width, stageHeight: size.height, mirrored: true,
     });
+    // Region status stays as a borderless tint only while a region is observed or detected.
     for (const region of analysis.geometry.regions) {
-      const points = region.polygon.map(display);
       const status = analysis.regions.find(item => item.id === region.id)?.status;
-      const progress = analysis.regions.find(item => item.id === region.id)?.progress || 0;
+      if (status !== 'detected' && status !== 'observing') continue;
       context.beginPath();
-      points.forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y));
+      region.polygon.map(display).forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y));
       context.closePath();
-      context.fillStyle = status === 'detected' ? '#70d39b66' : status === 'observing' ? '#ffca5c66' : '#ffffff19';
-      context.strokeStyle = status === 'detected' ? '#9ff2bc' : status === 'observing' ? '#ffca5c' : '#ffffffbb';
-      context.lineWidth = 2; context.fill(); context.stroke();
-      const x = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-      const y = points.reduce((sum, p) => sum + p.y, 0) / points.length;
-      context.font = '600 13px system-ui'; context.textAlign = 'center';
-      context.strokeStyle = '#1f2e29'; context.lineWidth = 4;
-      const label = `${region.label} ${progress}%`;
-      context.strokeText(label, x, y); context.fillStyle = 'white'; context.fillText(label, x, y);
+      context.fillStyle = status === 'detected' ? '#70d39b66' : '#ffca5c66'; context.fill();
     }
+    if (connections) {
+      context.save();
+      context.beginPath();
+      for (const [a, b] of getMeshSegments(analysis.geometry.landmarks, connections)) {
+        const p = display(a), q = display(b); context.moveTo(p.x, p.y); context.lineTo(q.x, q.y);
+      }
+      context.globalAlpha = .55; context.lineWidth = .7; context.lineCap = 'round';
+      context.strokeStyle = '#eef8f2'; context.shadowColor = '#eef8f2'; context.shadowBlur = 4;
+      context.stroke();
+      context.restore();
+    }
+    const outline = analysis.geometry.outline.map(display);
+    const xs = outline.map(p => p.x), ys = outline.map(p => p.y);
+    const x0 = Math.min(...xs) - 12, x1 = Math.max(...xs) + 12, y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 12;
+    const arm = Math.min(x1 - x0, y1 - y0) * .18;
+    context.beginPath();
+    for (const [x, y, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
+      context.moveTo(x, y + dy * arm); context.lineTo(x, y); context.lineTo(x + dx * arm, y);
+    }
+    context.strokeStyle = '#7cf2a2'; context.lineWidth = 2.5; context.stroke();
     for (const hand of analysis.hands) for (const index of [8, 12, 16]) {
       const point = hand[index];
       if (!point || !Number.isFinite(point.x + point.y)) continue;
       const p = display(point); context.beginPath(); context.arc(p.x, p.y, 4, 0, 2 * Math.PI);
       context.fillStyle = '#ffca5c'; context.fill();
     }
-  }, [analysis, size, video]);
+  }, [analysis, size, video, connections]);
   return <canvas ref={canvas} aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getFaceGeometry, locateRegion, getDisplayPoint } from '../src/lib/face-regions.js';
+import { getFaceGeometry, locateRegion, getDisplayPoint, getMeshSegments } from '../src/lib/face-regions.js';
 import { face, dimensions } from './helpers/landmarks.js';
 
 test('assigns visible skin to five user-relative regions without including eyes, mouth or background', () => {
@@ -64,4 +64,22 @@ test('forehead follows the upper contour and brow line instead of clipping side 
   for (const [x, y] of [[.5, .10], [.35, .27], [.65, .27], [.37, .345], [.63, .345]]) {
     assert.equal(locateRegion(geometry, [{ x, y }]), null, `${x},${y}`);
   }
+});
+
+test('keeps raw landmarks for the overlay and skips mesh segments with missing points', () => {
+  const landmarks = face();
+  assert.equal(getFaceGeometry(landmarks, dimensions).landmarks, landmarks);
+  const segments = getMeshSegments([{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: NaN, y: 0 }],
+    [{ start: 0, end: 1 }, { start: 1, end: 2 }, { start: 0, end: 9 }]);
+  assert.deepEqual(segments, [[{ x: 0, y: 0 }, { x: 1, y: 1 }]]);
+});
+
+test('mesh leaves out lines around the eyes and lips but keeps cheek lines', () => {
+  const landmarks = face();
+  const mouth = [61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91].map(i => landmarks[i]);
+  const center = { x: mouth.reduce((s, p) => s + p.x, 0) / 12, y: mouth.reduce((s, p) => s + p.y, 0) / 12 };
+  const extra = landmarks.length;
+  const points = [...landmarks, center, { x: center.x + 1e-3, y: center.y }, { x: .3, y: .53 }, { x: .31, y: .53 }];
+  const segments = getMeshSegments(points, [{ start: extra, end: extra + 1 }, { start: extra + 2, end: extra + 3 }]);
+  assert.deepEqual(segments, [[points[extra + 2], points[extra + 3]]]);
 });

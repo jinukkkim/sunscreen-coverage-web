@@ -34,7 +34,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await page.route('**/assets/vision_bundle-*.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
-      export const FaceLandmarker = {createFromOptions: async () => ({
+      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}], createFromOptions: async () => ({
         detectForVideo: () => ({faceLandmarks: [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
       })};
@@ -66,6 +66,10 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(Number(await overall.getAttribute('aria-valuenow'))).toBeLessThan(100);
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   await page.screenshot({ path: '.pr-review/motion-partial.png', fullPage: true });
+  const overlay = page.locator('canvas[aria-hidden="true"]');
+  const hasOverlay = () => overlay.evaluate(canvas =>
+    canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0));
+  await expect.poll(hasOverlay).toBe(true);
   const before = await page.evaluate(() => Date.now());
   await page.evaluate(() => { window.motionFixture.limit = Infinity; });
   await expect(overall).toHaveAttribute('aria-valuenow', '100', { timeout: 35000 });
@@ -78,6 +82,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect(page.getByRole('heading', { name: formatTime(stored.records[0].at + 80 * 60000), exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
+  await expect.poll(hasOverlay).toBe(false);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
