@@ -1,10 +1,10 @@
 import './styles.css';
-import { createCameraSession } from './lib/camera.js';
-import { createOperationGuard } from './lib/operation.js';
-import { getFaceModel } from './lib/vision.js';
-import { estimateFace } from './lib/measurement.js';
-import { getFingerGuide } from './lib/dose.js';
-import { drawFaceOverlay, fingerSVG } from './lib/ui.js';
+import { createCameraSession } from '../lib/camera.js';
+import { createOperationGuard } from '../lib/operation.js';
+import { getFaceModel } from '../lib/vision.js';
+import { estimateFace } from '../lib/measurement.js';
+import { getFingerGuide } from '../lib/dose.js';
+import { drawFaceOverlay, fingerSVG } from '../lib/ui.js';
 
 const $=id=>document.getElementById(id);
 const video=$('video'), preview=$('preview'), input=$('photo-input');

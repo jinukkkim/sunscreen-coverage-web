@@ -10,6 +10,7 @@ Thumbs.db
 
 # Credentials and local environment
 .env*
+!.env.example
 *.pem
 *.key
 *.p12
@@ -29,4 +30,8 @@ coverage/
 .superpowers/
 .pr-review/
 qa/
-/public/vendor/
+test-results/
+playwright-report/
+
+# Generated local vision models and SDK runtime
+/public/vision/

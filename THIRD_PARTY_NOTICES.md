@@ -1,16 +1,16 @@
 # Third-party notices
 
-## MediaPipe Tasks Vision
+## Google MediaPipe
 
-The `@mediapipe/tasks-vision` JavaScript package and its WebAssembly runtime are distributed under the Apache License 2.0. Package source: [google-ai-edge/mediapipe](https://github.com/google-ai-edge/mediapipe). See the upstream [Apache 2.0 license](https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE).
+Copyright The MediaPipe Authors. Licensed under Apache License 2.0; see [license](third_party/mediapipe/LICENSE).
 
-## Face Landmarker model
+`tests/fixtures/canonical-face.json` contains synthetic canonical model vertices from [canonical_face_model.obj](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj), converted to JSON. It contains no participant image or biometric capture.
 
-`public/models/face_landmarker.task` is the unmodified Google MediaPipe Face Landmarker float16 model bundle. The model cards for the included Face Mesh V2 and BlazeFace components identify Apache 2.0; the MediaPipe project has also confirmed that its Face Landmarker models are Apache 2.0 licensed. Keep this notice with redistributed copies of the model.
+The unmodified runtime package `@mediapipe/tasks-vision` is pinned to 0.10.32 (Apache-2.0). Its generated JavaScript/WASM files are copied from that package without modification.
 
-- Source: <https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task>
-- SHA-256: `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`
-- Model cards: [Face Mesh V2](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf), [BlazeFace short-range](https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20%28Short%20Range%29.pdf)
-- Upstream license clarification: [MediaPipe contributor response](https://github.com/google-ai-edge/mediapipe-samples/issues/407)
+Official unmodified model assets are pinned to float16/1. URLs and SHA-256 are recorded in `scripts/vision-assets.json`:
 
-The product's MIT license applies to SunGuard-authored project files and does not replace the licenses above.
+- Face Landmarker: [Face Mesh V2 model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf), Apache-2.0.
+- Hand Landmarker: [Hand Tracking model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Hand%20Tracking%20%28Lite_Full%29%20with%20Fairness%20Oct%202021.pdf), Apache-2.0.
+
+The generated `/vision/LICENSE` and `/vision/NOTICE.md` accompany the runtime/model assets in the built site. These licenses do not change the MIT license or SunGuard contributors copyright of this project.
