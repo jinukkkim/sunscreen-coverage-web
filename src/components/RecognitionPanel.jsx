@@ -35,12 +35,12 @@ export default function RecognitionPanel({ onComplete }) {
         <ProgressBar label="전체 동작 진행률" value={analysis.progress} hasValueLabel variant={analysis.progress === 100 ? 'success' : 'accent'} />
         <Text role="status">5구역 중 {analysis.detectedCount}구역에서 동작 감지</Text>
         <VStack as="ul" gap={3} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {REGIONS.map(region => {
+          {REGIONS.map((region, index) => {
             const observed = analysis.regions.find(item => item.id === region.id);
             const status = observed?.status || 'pending', progress = observed?.progress || 0;
             return <VStack as="li" key={region.id} gap={2}>
               <HStack gap={3} hAlign="between" wrap="wrap">
-                <Text type="label">{region.label}</Text>
+                <Text type="label">{index + 1}. {region.label}</Text>
                 <Text type="supporting" color={status === 'detected' ? 'accent' : 'secondary'}>{status === 'pending' && progress > 0 ? '이어 바르기' : statusLabels[status]}</Text>
               </HStack>
               <ProgressBar label={`${region.label} 동작 진행률`} value={progress} hasValueLabel isLabelHidden variant={progress === 100 ? 'success' : 'accent'} />
