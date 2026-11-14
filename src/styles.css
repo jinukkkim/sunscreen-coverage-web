@@ -39,3 +39,11 @@ label span[role="alert"] { display: block; font-size: 13px; margin-top: 4px; }
 [role="alert"] { color: #a32e28; }
 footer { padding: 20px 0; border-top: 1px solid #dce3dc; }
 @media (max-width: 720px) { .workspace, .supporting, .field-grid { grid-template-columns: 1fr; } .app { padding: 0 16px; } .card { padding: 20px; } header span { font-size: 12px; } }
+.guidance { padding: 10px 14px; border-left: 4px solid #255d44; background: #edf3ee; border-radius: 0 8px 8px 0; font-weight: 600; }
+.fineprint { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #dce3dc; color: #54665d; font-size: 12.5px; line-height: 1.55; }
+.fineprint p { margin: 0 0 10px; }
+.guide-table { width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 12px; }
+.guide-table th, .guide-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e6ebe6; vertical-align: top; }
+.guide-table th { font-weight: 600; color: #24362f; }
+.guide-table tr.match td { background: #edf3ee; font-weight: 600; color: #24362f; }
+@media (max-width: 720px) { .guide-table th:nth-child(4), .guide-table td:nth-child(4) { display: none; } }

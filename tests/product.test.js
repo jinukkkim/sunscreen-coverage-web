@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveSolution, emptyProfile, findUvFilters, normalizeProfile, validateProfile } from '../src/lib/product.js';
+import { activityGuidance, deriveSolution, emptyProfile, findUvFilters, normalizeProfile, validateProfile } from '../src/lib/product.js';
 import { STORAGE_KEY, clearProfile, loadProfile, saveProfile } from '../src/lib/productStorage.js';
 
 function profile(overrides = {}) {
@@ -86,4 +86,30 @@ test('storage round-trips a profile and drops corrupt data', () => {
 
 test('saveProfile rejects an invalid profile', () => {
   assert.throws(() => saveProfile(fakeStorage(), profile({ name: '' })), /제품 이름/);
+});
+
+test('activityGuidance picks the environment from the weaker of SPF and PA', () => {
+  assert.equal(activityGuidance(profile({ spf: 50, spfPlus: true, paGrade: 4 })).entry.key, 'outdoor');
+  assert.equal(activityGuidance(profile({ spf: 50, spfPlus: true, paGrade: 3 })).entry.key, 'daily', 'PA+++ caps it at daily');
+  assert.equal(activityGuidance(profile({ spf: 50, spfPlus: false, paGrade: 4 })).entry.key, 'daily', 'SPF 50 without + is the 30~50 band');
+  assert.equal(activityGuidance(profile({ spf: 30, paGrade: 2 })).entry.key, 'indoor');
+  assert.equal(activityGuidance(profile({ spf: 15, paGrade: 1 })).entry.key, 'indoor');
+});
+
+test('activityGuidance explains partial and missing ratings', () => {
+  const spfOnly = activityGuidance(profile({ spf: 50, spfPlus: true }));
+  assert.equal(spfOnly.basis, 'spf-only');
+  assert.match(spfOnly.sentence, /장시간 야외/);
+  assert.match(spfOnly.sentence, /PA 표기가 없어/);
+  const paOnly = activityGuidance(profile({ paGrade: 3 }));
+  assert.equal(paOnly.entry.key, 'daily');
+  assert.match(paOnly.sentence, /SPF 표기가 없어/);
+  const none = activityGuidance(profile());
+  assert.equal(none.level, null);
+  assert.match(none.sentence, /확인하면/);
+});
+
+test('activityGuidance sentence names the rating and the environment', () => {
+  assert.equal(activityGuidance(profile({ spf: 50, spfPlus: true, paGrade: 4 })).sentence,
+    "SPF 50+ · PA++++ 기준으로 '장시간 야외 · 등산 · 해변' 활동 환경에 맞는 선크림을 사용하고 계십니다.");
 });

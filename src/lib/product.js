@@ -129,3 +129,42 @@ export function deriveSolution(profile) {
     ],
   };
 }
+
+// Activity-environment guidance from the label's SPF and PA. This is a general consumer
+// guideline table, not a measurement: the weaker of the two ratings decides the level.
+export const ACTIVITY_LEVELS = [
+  { level: 0, key: 'indoor', label: '실내 생활 · 간단한 외출', spf: 'SPF 15 ~ 30', pa: 'PA+ ~ PA++', note: '피부 부담이 적고 세안이 용이함' },
+  { level: 1, key: 'daily', label: '일상적인 야외 활동 · 산책', spf: 'SPF 30 ~ 50', pa: 'PA+++', note: '출퇴근, 가벼운 야외 활동에 적합' },
+  { level: 2, key: 'outdoor', label: '장시간 야외 · 등산 · 해변', spf: 'SPF 50+', pa: 'PA++++', note: '강한 직사광선 노출 시 필수' },
+];
+
+export function spfLevel(spf, spfPlus) {
+  if (!Number.isInteger(spf)) return null;
+  if (spf >= 50 && spfPlus) return 2;
+  if (spf >= 30) return 1;
+  if (spf >= 15) return 0;
+  return null;
+}
+
+export function paLevel(paGrade) {
+  if (paGrade === 4) return 2;
+  if (paGrade === 3) return 1;
+  if (paGrade === 1 || paGrade === 2) return 0;
+  return null;
+}
+
+export function activityGuidance(profile) {
+  const s = spfLevel(profile.spf, profile.spfPlus);
+  const p = paLevel(profile.paGrade);
+  if (s === null && p === null) return { level: null, entry: null, basis: 'none', sentence: 'SPF와 PA 표기를 확인하면 활동 환경별 권장 기준과 비교해 드립니다.' };
+  const level = s === null ? p : p === null ? s : Math.min(s, p);
+  const entry = ACTIVITY_LEVELS[level];
+  const basis = s === null ? 'pa-only' : p === null ? 'spf-only' : 'both';
+  const rating = [
+    profile.spf !== null ? `SPF ${profile.spf}${profile.spfPlus ? '+' : ''}` : null,
+    profile.paGrade !== null ? `PA${'+'.repeat(profile.paGrade)}` : null,
+  ].filter(Boolean).join(' · ');
+  const sentence = `${rating} 기준으로 '${entry.label}' 활동 환경에 맞는 선크림을 사용하고 계십니다.`;
+  const caveat = basis === 'both' ? '' : basis === 'spf-only' ? ' PA 표기가 없어 SPF만으로 판단했습니다.' : ' SPF 표기가 없어 PA만으로 판단했습니다.';
+  return { level, entry, basis, sentence: sentence + caveat };
+}

@@ -88,10 +88,34 @@ export default function ProductSetup({ storage = window.localStorage }) {
     setMode('idle');
   }
 
+  // Identity fields the solution needs. When the photo gave all of them, register at once;
+  // the form is only for filling gaps. Everything stays editable afterwards via "정보 수정".
+  function isComplete(d) {
+    return Boolean(d.name) && d.spf !== null && d.paGrade !== null && d.form !== 'unknown';
+  }
+
   function chooseCandidate() {
     if (!result) return;
-    setDraft(draftFromRecognition(result, picked));
+    const next = draftFromRecognition(result, picked);
     setErrors({});
+    if (isComplete(next)) {
+      try {
+        setSaved(saveProfile(storage, { ...next, id: crypto.randomUUID(), registeredAt: new Date().toISOString() }));
+        reset();
+        return;
+      } catch (cause) {
+        setError(cause.message);
+      }
+    }
+    setDraft(next);
+    setMode('draft');
+  }
+
+  function editSaved() {
+    if (!saved) return;
+    setDraft({ ...saved });
+    setErrors({});
+    setError('');
     setMode('draft');
   }
 
@@ -119,7 +143,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
     reset();
   }
 
-  if (saved && mode === 'idle') return <ProductSolution profile={saved} onReset={removeSaved} />;
+  if (saved && mode === 'idle') return <ProductSolution profile={saved} onReset={removeSaved} onEdit={editSaved} />;
 
   const review = field => (draft.source === 'photo-ai' && needsReview(draft, field) ? ' · 확인 필요' : '');
 
@@ -181,9 +205,10 @@ export default function ProductSetup({ storage = window.localStorage }) {
       )}
       {mode === 'draft' && (
         <form onSubmit={save} noValidate>
-          {draft.source === 'photo-ai' && (
-            <p className="badge">사진에서 읽은 초안입니다. 값을 확인하고 저장하세요.{notVisible.length ? ` 읽지 못한 항목: ${notVisible.length}개` : ''}</p>
+          {draft.source === 'photo-ai' && !saved && (
+            <p className="badge">사진에서 읽지 못한 항목이 있어 확인이 필요합니다.{notVisible.length ? ` (${notVisible.length}개)` : ''}</p>
           )}
+          {saved && <p className="badge">등록된 정보를 수정합니다.</p>}
           <div className="field-grid">
             <label>제품 이름{review('productName')}
               <input value={draft.name} onChange={e => update('name', e.target.value)} maxLength={60} required />
