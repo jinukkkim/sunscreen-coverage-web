@@ -1,11 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, policyAt, readCare, recordApplication, recordMotionCompletion, recordSourceLabel, timeline, uvAt, uvPolicy } from '../src/lib/reapplication.js';
+import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, policyAt, readCare, recordApplication, recordMotionCompletion, recordSourceLabel, timeline, upcomingTimeline, uvAt, uvPolicy } from '../src/lib/reapplication.js';
 import { deliverReminder } from '../src/lib/reminders.js';
 import { locate, getForecast } from '../src/lib/location.js';
 
 const at = value => Date.parse(`2026-11-14T${value}:00+09:00`);
 const started = () => recordApplication(emptyCare(), at('08:00'), at('08:00'), 'first');
+
+test('upcoming guidance uses future UV bands and contains no past records', () => {
+  const slots = [[3, '09:00', '10:00'], [8, '10:00', '12:00'], [0, '12:00', '21:00']].map(([value, start, end]) => ({ value, validFrom: new Date(at(start)).toISOString(), validTo: new Date(at(end)).toISOString() }));
+  const forecast = { fetchedAt: new Date(at('09:00')).toISOString(), slots };
+  const rows = upcomingTimeline(started(), at('09:00'), forecast);
+  assert.deepEqual(rows.map(row => [row.at, row.minutes]), [[at('10:00'), 60], [at('11:00'), 60]]);
+  assert.equal(rows[0].conditional, false);
+  assert.equal(rows[1].conditional, true);
+  assert.equal(rows.some(row => row.at < at('09:00')), false);
+});
+
+test('overdue guidance restarts hypothetical future plans from now without recording an application', () => {
+  const state = started();
+  const forecast = { fetchedAt: new Date(at('10:45')).toISOString(), slots: [{ value: 7, validFrom: new Date(at('06:00')).toISOString(), validTo: new Date(at('20:00')).toISOString() }] };
+  const rows = upcomingTimeline(state, at('10:45'), forecast);
+  assert.equal(rows[0].immediate, true);
+  assert.equal(rows[0].at, at('10:45'));
+  assert.equal(rows[1].at, at('12:05'));
+  assert.equal(state.records.length, 1);
+  assert.equal(nextDue(state, at('10:45'), forecast).at, at('09:20'));
+  assert.deepEqual(upcomingTimeline(state, at('20:01'), forecast), []);
+});
 const enabled = () => ({ ...started(), enabled: true, activeDay: '2026-11-14' });
 
 test('first application anchors a two-hour reminder; reapplication resets it', () => {
