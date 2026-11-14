@@ -23,6 +23,22 @@ test('requires two seconds of moving hand observations, independently of frame r
   }
 });
 
+test('uses one second for nose, one and a half for chin, and two for forehead and cheeks', () => {
+  for (const [id, requiredMs] of [
+    ['nose', 1000], ['chin', 1500], ['forehead', 2000], ['leftCheek', 2000], ['rightCheek', 2000],
+  ]) {
+    const tracker = createRubbingTracker();
+    // The fixture establishes the minimum motion range at 200ms. Only then
+    // does credit begin, so 100ms of the initial observation is not credited.
+    feed(tracker, requiredMs, 100, 0, t => regionHand(id, t));
+    assert.notEqual(status(tracker, id), 'detected', `${id} must not finish early`);
+    feed(tracker, requiredMs + 100, 100, requiredMs + 100, t => regionHand(id, t));
+    assert.equal(status(tracker, id), 'detected', id);
+    assert.equal(tracker.snapshot().regions.find(r => r.id === id).progress, 100);
+    assert.equal(tracker.snapshot().progress, 20);
+  }
+});
+
 test('rejects a static hand, tiny jitter, short pass and a hand outside the face', () => {
   for (const makeHand of [
     () => hand(.32, .53), t => hand(.32 + .0001 * Math.sin(t), .53),
@@ -48,7 +64,7 @@ test('does not mistake joint head and hand translation for rubbing', () => {
   assert.equal(tracker.snapshot().detectedCount, 0);
 });
 
-test('does not inherit time across a lost hand, new region, or a long frame gap', () => {
+test('resumes accumulated motion after hand loss, region change, or invalid geometry without counting the gap', () => {
   for (const interrupt of [
     t => ({ geometry, hands: [], timestampMs: t }),
     t => ({ geometry: null, hands: [], timestampMs: t }),
@@ -57,13 +73,47 @@ test('does not inherit time across a lost hand, new region, or a long frame gap'
     const tracker = createRubbingTracker();
     feed(tracker, 1500);
     tracker.update(interrupt(1600));
-    feed(tracker, 2900, 100, 1700);
+    feed(tracker, 1900, 100, 1700);
     assert.notEqual(status(tracker), 'detected');
+    feed(tracker, 2900, 100, 2000);
+    assert.equal(status(tracker), 'detected');
+    assert.equal(tracker.snapshot().regions.find(r => r.id === 'leftCheek').progress, 0);
   }
   const tracker = createRubbingTracker();
   feed(tracker, 1500);
-  feed(tracker, 3500, 100, 2500);
+  feed(tracker, 2700, 100, 2500);
   assert.notEqual(status(tracker), 'detected');
+  feed(tracker, 3500, 100, 2800);
+  assert.equal(status(tracker), 'detected');
+});
+
+test('repeated one-second bursts continue progress instead of stalling at the first burst', () => {
+  const tracker = createRubbingTracker();
+  feed(tracker, 1000, 100, 0, t => regionHand('rightCheek', t));
+  const first = tracker.snapshot().progress;
+  tracker.update({ geometry, hands: [], timestampMs: 1100 });
+  feed(tracker, 2200, 100, 1200, t => regionHand('rightCheek', t - 1200));
+  assert.ok(tracker.snapshot().progress > first);
+  feed(tracker, 2600, 100, 2300, t => regionHand('rightCheek', t - 1200));
+  assert.equal(status(tracker), 'detected');
+  tracker.reset();
+  feed(tracker, 3700, 100, 2700, t => regionHand('rightCheek', t - 2700));
+  assert.notEqual(status(tracker), 'detected');
+});
+
+test('pauses and repeated small jitters cannot complete accumulated motion', () => {
+  const tracker = createRubbingTracker();
+  feed(tracker, 1000);
+  const before = tracker.snapshot().progress;
+  feed(tracker, 5000, 100, 1100, () => hand(xAt(1000), .53));
+  assert.equal(tracker.snapshot().progress, before);
+  assert.notEqual(status(tracker), 'detected');
+  tracker.reset();
+  for (let t = 0; t <= 10000; t += 100) {
+    tracker.update({ geometry, hands: [hand(.32 + .001 * ((t / 100) % 2), .53)], timestampMs: t });
+    if (t % 1000 === 0) tracker.interrupt();
+  }
+  assert.equal(tracker.snapshot().progress, 0);
 });
 
 test('ignores repeated and backward timestamps rather than giving extra credit', () => {
@@ -91,6 +141,17 @@ test('ambiguous nearby hands do not share accumulated credit', () => {
     tracker.update({ geometry, hands: [hand(xAt(t), .53), hand(xAt(t) + .015, .53)], timestampMs: t });
   }
   assert.equal(tracker.snapshot().detectedCount, 0);
+});
+
+test('two distinct hands in the same region cannot double the elapsed time', () => {
+  const tracker = createRubbingTracker();
+  for (let t = 0; t <= 2400; t += 100) {
+    const hands = [-.07, .07].map(offset => regionHand('forehead', t).map(p => ({ ...p, x: p.x + offset })));
+    tracker.update({ geometry, hands, timestampMs: t });
+    if (t < 2000) assert.equal(tracker.snapshot().detectedCount, 0);
+  }
+  assert.equal(status(tracker, 'forehead'), 'detected');
+  assert.equal(tracker.snapshot().detectedCount, 1);
 });
 
 test('air rubbing can pass: motion observations do not certify physical contact or product', () => {
@@ -152,7 +213,7 @@ test('static hands and head-only movement cannot raise progress', () => {
 });
 
 
-test('interrupt preserves completed and partial progress without joining motion across the gap', () => {
+test('interrupt preserves completed and partial credit and resumes only observed movement', () => {
   const tracker = createRubbingTracker();
   feed(tracker, 2200);
   feed(tracker, 3800, 100, 2300, t => regionHand('leftCheek', t));
@@ -162,7 +223,9 @@ test('interrupt preserves completed and partial progress without joining motion 
   assert.equal(tracker.snapshot().progress, before.progress);
   assert.equal(tracker.snapshot().detectedCount, 1);
   assert.equal(tracker.snapshot().regions.find(r => r.id === 'leftCheek').status, 'pending');
-  feed(tracker, 4900, 100, 3900, t => regionHand('leftCheek', t));
-  assert.equal(tracker.snapshot().detectedCount, 1);
+  tracker.update({ geometry, hands: [regionHand('leftCheek', 3900)], timestampMs: 3900 });
   assert.equal(tracker.snapshot().progress, before.progress);
+  feed(tracker, 4900, 100, 3900, t => regionHand('leftCheek', t));
+  assert.equal(tracker.snapshot().detectedCount, 2);
+  assert.ok(tracker.snapshot().progress > before.progress);
 });
