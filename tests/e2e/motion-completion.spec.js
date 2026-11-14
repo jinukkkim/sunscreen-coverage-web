@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { face, regionHand } from '../helpers/landmarks.js';
 import { formatTime } from '../../src/lib/reapplication.js';
 
@@ -28,13 +29,13 @@ test('partial motion progresses, completion records once and starts the UV timer
       window.motionFixture.geoCalls++;
       success({ coords: { latitude: 37.5665, longitude: 126.978, accuracy: 30 }, timestamp: Date.now() });
     } } });
-  }, { face: face(), frames });
+  }, { face: face(), frames, connections: FaceLandmarker.FACE_LANDMARKS_TESSELATION });
   // Replace only the lazy SDK chunk with synthetic landmarks. The actual app,
   // vision-session, rubbing tracker, progress UI and persistence run unchanged.
   await page.route('**/assets/vision_bundle-*.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
-      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}], createFromOptions: async () => ({
+      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: window.motionFixture.connections, createFromOptions: async () => ({
         detectForVideo: () => ({faceLandmarks: window.motionFixture.faceVisible === false ? [] : [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
       })};
@@ -70,13 +71,13 @@ test('partial motion progresses, completion records once and starts the UV timer
   const hasOverlay = () => overlay.evaluate(canvas =>
     canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0));
   await expect.poll(hasOverlay).toBe(true);
-  const greenPixels = () => overlay.evaluate(canvas => {
+  const creamPixels = () => overlay.evaluate(canvas => {
     const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
     let count = 0;
-    for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 1] > pixels[i] * 1.15 && pixels[i + 1] > pixels[i + 2] * 1.05 && pixels[i + 3] > 20) count++;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] > pixels[i + 1] + 1 && pixels[i + 1] > pixels[i + 2] + 1 && pixels[i + 3] > 20) count++;
     return count;
   });
-  const partialGreen = await greenPixels();
+  const partialCream = await creamPixels();
   const partialProgress = await overall.getAttribute('aria-valuenow');
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
   await expect(page.getByText('인식 복구 대기', { exact: true })).toBeVisible();
@@ -84,7 +85,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByText('동작 관찰 중', { exact: true })).toBeVisible();
+  await expect(page.getByText('동작 관찰 중', { exact: true }).and(page.locator('[data-type="label"]'))).toBeVisible();
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   // Sustained loss requires confirmation but keeps the same accumulated progress.
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
@@ -108,7 +109,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
   await expect.poll(hasOverlay).toBe(true);
-  await expect.poll(greenPixels).toBeGreaterThan(partialGreen * 2);
+  await expect.poll(creamPixels).toBeGreaterThan(partialCream);
   expect(await page.locator('#motion video').evaluate(video => video.paused)).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);

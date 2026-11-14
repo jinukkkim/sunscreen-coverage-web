@@ -64,6 +64,18 @@ npm run test:e2e
 - 데이터 흐름·보관 정책·동의 문구는 [제품 사진 데이터 흐름](docs/sunguard/05-product-photo-data-flow.md), 설계는 [제품 등록·사진 인식·맞춤 솔루션](docs/superpowers/specs/product-profile.md)에 있습니다.
 - Tailscale로 노출해 휴대폰에서 시험할 때는 `tailscale serve --bg 5173`을 쓰며, `*.ts.net` 호스트는 Vite 설정에서 허용돼 있습니다.
 
+## 현재 지역 자외선지수 (기상청)
+
+현재 시간대 UV 표시·재도포 알림·하루 타임라인은 모두 [기상청 생활기상지수 조회서비스](https://www.data.go.kr/data/15085288/openapi.do)의 같은 응답을 사용합니다. 실제 호출은 `LivingWthrIdxServiceV5/getUVIdxV5`이며, 발표 시각부터 3시간 단위의 예측값을 제공합니다. 실시간 실측값으로 표시하지 않습니다.
+
+**알림마다 새 위치를 확인해 UV 예보 갱신**에 동의하면 현재 위치의 인근 기상청 지점을 조회합니다. **현재 위치·예보 다시 확인**에서 수동 갱신할 수 있고, 완료·알림 시점 새 위치 확인과 30분 예보 갱신도 같은 상태를 사용합니다. 별도 조회·동의 흐름으로 서로 다른 UV가 표시되지 않도록 통합했습니다.
+
+서버 전용 `KMA_SERVICE_KEY` 하나만 사용합니다. 생활안전지도·VWorld 호출과 해당 키 의존성은 제거했습니다. 기존 로컬 `.env`는 덮어쓰지 않으며, 키를 프론트엔드나 Git에 넣지 않습니다. 약 0.001도 단위 좌표는 앱 서버에만 보내고, 기상청에는 인근 지점 코드를 전송합니다.
+
+`GET /api/uv`는 전체 예보를 반환하고, `GET /api/uv/current`는 같은 기상청 서비스·캐시에서 현재 구간을 골라 반환합니다. 현재 구간의 `value`, `validFrom`, `validTo`, `publishedAt`, `fetchedAt`, 인근 지점명과 출처를 제공합니다. 유효한 현재 구간이 없으면 오류를 반환하며, 임의 값을 만들지 않습니다. 화면도 조회 후 1시간이 지났거나 구간이 없으면 값을 지우고 기본 120분으로 안내합니다.
+
+서버와 프론트엔드를 함께 반영한 뒤 `npm test`, `npm run build`, `npm run test:e2e`로 확인하고 서버를 재시작하세요. `npm start`가 빌드와 API를 함께 제공하며, `vite preview`는 API를 제공하지 않습니다. 프록시는 `/api/uv`와 `/api/uv/current`를 Express에 전달하고 요청 좌표를 로그에서 제외해야 합니다.
+
 ## 코드 구조와 다음 연결 지점
 
 | 경로 | 역할 |
