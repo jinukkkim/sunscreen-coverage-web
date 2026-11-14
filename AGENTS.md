@@ -30,7 +30,7 @@
 
 - Main goal: sunscreen application recognition on the web. UV information, reminders, and ingredient analysis are supporting features.
 - Hand movement tracking does not prove actual sunscreen application, adequate amount, SPF, or UVA protection. Actual coverage recognition is not validated yet.
-- The skeleton uses React and Vite. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`. No backend or recognition model is connected yet.
+- The current prototype uses framework-free HTML, CSS, and JavaScript with Vite. MediaPipe Face Landmarker runs in the browser for experimental partial-face area estimates. Actual sunscreen application recognition is not connected or validated. Run `npm ci`, `npm run dev`, `npm test`, and `npm run build`.
 - Camera video stays in the browser preview; it is not stored or transmitted. Document image transmission before adding an external analysis service.
 - UI copy is Korean; code identifiers are English.
 - Shared research is in `docs/sunguard/`, indexed by `docs/README.md`, and is intended for GitHub.

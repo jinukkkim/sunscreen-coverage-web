@@ -29,3 +29,4 @@ coverage/
 .superpowers/
 .pr-review/
 qa/
+/public/vendor/

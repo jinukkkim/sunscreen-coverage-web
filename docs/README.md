@@ -18,4 +18,6 @@
 
 프로젝트 루트에 `main` 브랜치의 로컬 Git 저장소를 초기화했다. GitHub 저장소는 `jinukkkim/sunscreen-coverage-web`, 공개, MIT 라이선스로 선택했다. MIT 저작권 표기는 `SunGuard contributors`이며 팀 공동 기여를 기준으로 한다. Claude 코드 리뷰·GitHub App·관련 시크릿 연결은 하지 않는다. [GitHub 저장소](https://github.com/jinukkkim/sunscreen-coverage-web)에 기본 파일을 업로드했다. 조사 문서는 별도 문서 PR로 관리한다.
 
-웹 구현 코드는 아직 만들지 않았다. 이후 구현은 `docs/sunguard/00-project.md`의 사용자 결정과 미검증 가정을 구분해 따른다.
+## 웹 구현
+
+`feat/face-dose-guide`에서 HTML/CSS/JavaScript와 MediaPipe를 사용한 얼굴 부분 면적·손가락 길이 실험 가이드를 구현 중이다. 모델 실행은 브라우저 안에서 하며, 면적·사용량과 제품별 토출량은 검증 전이다. 자세한 실행·한계는 프로젝트 [README](../README.md), 라이선스·모델 출처는 [제3자 고지](../THIRD_PARTY_NOTICES.md)를 참고한다.
