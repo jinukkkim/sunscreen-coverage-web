@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dailyEnd, dayKey, emptyCare, formatTime, latestRecord, pendingReminder, readCare, recordApplication, STORAGE_KEY, uvAt } from '../lib/reapplication.js';
+import { dailyEnd, dayKey, emptyCare, formatTime, latestRecord, pendingReminder, readCare, recordApplication, recordMotionCompletion, STORAGE_KEY, uvAt } from '../lib/reapplication.js';
 import { getForecast, locate } from '../lib/location.js';
 import { deliverReminder, enableDeviceNotifications, notifyDevice } from '../lib/reminders.js';
 
@@ -13,6 +13,7 @@ export function useCare() {
   const [forecast, setForecast] = useState(null), [locationStatus, setLocationStatus] = useState('위치 갱신 사용 안 함');
   const [locationEnabled, setLocationEnabled] = useState(false), [permission, setPermission] = useState(globalThis.Notification?.permission || 'unsupported');
   const [deviceEnabled, setDeviceEnabled] = useState(false);
+  const [completion, setCompletion] = useState(null);
   const state = useRef(care), live = useRef(true), locationRequest = useRef(0), inFlight = useRef(false);
   const currentForecast = useRef(forecast), lastPosition = useRef(null), lastForecastAttempt = useRef(0);
   currentForecast.current = forecast;
@@ -133,9 +134,26 @@ export function useCare() {
       .finally(() => { inFlight.current = false; });
   }, [care, now, forecast, refresh, update]);
 
+  const completeMotion = useCallback(({ sessionId, completedAt }) => {
+    setError('');
+    try {
+      let changed = false;
+      update(current => {
+        const next = recordMotionCompletion(current, { sessionId, at: completedAt });
+        changed = next !== current;
+        return next;
+      });
+      if (changed) {
+        setCompletion({ id: `motion:${sessionId}`, at: completedAt });
+        setAlert(null); setNow(Date.now());
+        if (options.current.locationEnabled) refresh().catch(() => {});
+      }
+    } catch (cause) { setError(cause.message); }
+  }, [update, refresh]);
+
   function record(at = Date.now()) {
     setError('');
-    try { update(current => recordApplication(current, at)); setAlert(null); setNow(Date.now()); }
+    try { update(current => recordApplication(current, at)); setAlert(null); setCompletion(null); setNow(Date.now()); }
     catch (cause) { setError(cause.message); }
   }
   function toggleLocation(value) {
@@ -148,9 +166,10 @@ export function useCare() {
     catch (cause) { setError(cause.message); setPermission(globalThis.Notification?.permission || 'unsupported'); }
   }
   return { care, now, error, clearError: () => setError(''), alert, dismiss: () => setAlert(null), forecast, locationStatus,
+    completion, completeMotion,
     locationEnabled, toggleLocation, refresh: () => refresh().catch(() => {}), permission, deviceEnabled, enableNotifications,
     disableNotifications: () => setDeviceEnabled(false), record,
-    remove: id => { update(current => ({ ...current, records: current.records.filter(record => record.id !== id) })); setAlert(null); },
+    remove: id => { update(current => ({ ...current, records: current.records.filter(record => record.id !== id) })); setAlert(null); if (completion?.id === id) setCompletion(null); },
     setEndTime: endTime => {
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return;
       update(current => ({ ...current, endTime }));

@@ -16,7 +16,7 @@ export function parseInput(value, now) {
 }
 
 export function emptyCare() {
-  return { version: 1, records: [], enabled: false, activeDay: '', endTime: '20:00', delivered: [] };
+  return { version: 1, records: [], enabled: false, activeDay: '', endTime: '20:00', delivered: [], completedSessions: [] };
 }
 
 export function readCare(raw, now = Date.now()) {
@@ -30,7 +30,8 @@ export function readCare(raw, now = Date.now()) {
   }).sort((a, b) => a.at - b.at);
   return { ...emptyCare(), records, enabled: state.enabled === true, activeDay: typeof state.activeDay === 'string' ? state.activeDay : '',
     endTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(state.endTime) ? state.endTime : '20:00',
-    delivered: Array.isArray(state.delivered) ? state.delivered.filter(id => typeof id === 'string').slice(-200) : [] };
+    delivered: Array.isArray(state.delivered) ? state.delivered.filter(id => typeof id === 'string').slice(-200) : [],
+    completedSessions: Array.isArray(state.completedSessions) ? state.completedSessions.filter(id => typeof id === 'string' && id.length <= 128).slice(-200) : [] };
 }
 
 export function recordApplication(state, at, now = Date.now(), id = crypto.randomUUID()) {
@@ -38,6 +39,22 @@ export function recordApplication(state, at, now = Date.now(), id = crypto.rando
   if (state.records.some(record => Math.floor(record.at / 60000) === Math.floor(at / 60000))) throw new Error('같은 분에 기록한 도포가 이미 있습니다.');
   return { ...state, records: [...state.records.filter(record => record.at >= now - 30 * DAY_MS), { id, at }].sort((a, b) => a.at - b.at) };
 }
+
+export function recordMotionCompletion(state, { sessionId, at }, now = Date.now()) {
+  if (typeof sessionId !== 'string' || !sessionId.length || sessionId.length > 128) throw new Error('동작 완료 세션을 확인하지 못했습니다.');
+  const id = `motion:${sessionId}`;
+  if (state.completedSessions?.includes(sessionId) || state.records.some(record => record.id === id)) return state;
+  // A manual entry in the same minute describes the same application, so replace it.
+  const base = { ...state, records: state.records.filter(record => Math.floor(record.at / 60000) !== Math.floor(at / 60000)) };
+  const next = recordApplication(base, at, now, id);
+  return { ...next,
+    records: next.records.map(record => record.id === id ? { ...record, source: 'motion' } : record),
+    completedSessions: [...(state.completedSessions || []), sessionId].slice(-200),
+    enabled: true, activeDay: dayKey(at),
+  };
+}
+
+export function recordSourceLabel(record) { return record?.source === 'motion' ? '동작 완료 자동 기록' : '직접 기록'; }
 
 export function dailyEnd(state, now) { return Date.parse(`${dayKey(now)}T${state.endTime}:00+09:00`); }
 export function latestRecord(state) { return state.records.at(-1) ?? null; }
