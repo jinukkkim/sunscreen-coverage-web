@@ -1,0 +1,13 @@
+{
+  "brand": "",
+  "productName": "선스틱",
+  "sellerName": null,
+  "spf": 500,
+  "spfPlus": true,
+  "paGrade": 7,
+  "form": "foam",
+  "waterResistance": "10min",
+  "ingredients": ["Water", "", "  Octocrylene  "],
+  "confidence": { "spf": 1.7, "paGrade": -1, "form": 0.9 },
+  "notVisible": ["bogusField", "brand"]
+}

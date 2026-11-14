@@ -1,0 +1,13 @@
+{
+  "brand": "Biore",
+  "productName": "UV Aqua Rich Watery Essence",
+  "sellerName": null,
+  "spf": 50,
+  "spfPlus": true,
+  "paGrade": 4,
+  "form": "unknown",
+  "waterResistance": "unknown",
+  "ingredients": [],
+  "confidence": { "brand": 0.9, "productName": 0.9, "sellerName": 0, "spf": 0.95, "spfPlus": 0.95, "paGrade": 0.9, "form": 0.2, "waterResistance": 0.1, "ingredients": 0 },
+  "notVisible": ["sellerName", "ingredients", "waterResistance", "form"]
+}

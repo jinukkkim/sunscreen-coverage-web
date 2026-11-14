@@ -1,6 +1,7 @@
 import React from 'react';
 import RecognitionPanel from './components/RecognitionPanel.jsx';
 import CareDashboard from './components/CareDashboard.jsx';
+import ProductSetup from './components/ProductSetup.jsx';
 import { useCare } from './hooks/useCare.js';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
@@ -31,6 +32,12 @@ export default function App() {
           <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
         </VStack>
         <CareDashboard model={model} />
+        <Divider />
+        <VStack gap={2}>
+          <Heading level={2}>내 선크림</Heading>
+          <Text>사용 중인 선크림의 라벨을 사진으로 읽어 등록하고, 표기된 SPF·PA에 맞는 안내를 확인하세요.</Text>
+        </VStack>
+        <ProductSetup />
       </VStack>
       <Divider />
       <Text as="p" type="supporting">2026 SunGuard contributors · 시각 기준: 대한민국(Asia/Seoul)</Text>
