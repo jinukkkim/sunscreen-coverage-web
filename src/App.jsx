@@ -18,11 +18,9 @@ export default function App() {
       <Divider />
       <VStack as="main" gap={6}>
         <VStack gap={2}>
-          <Heading level={1}>오늘의 선케어 타임라인</Heading>
-          <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
+          <Heading level={1}>선크림 도포 인식</Heading>
+          <Text>카메라를 켜서 내 모습을 확인하세요.</Text>
         </VStack>
-        <CareDashboard />
-        <Divider />
         <Grid columns={{ minWidth: 300, max: 2 }} gap={4}>
           <Camera />
           <VStack as="section" gap={3} padding={4}>
@@ -32,6 +30,12 @@ export default function App() {
             <Text type="supporting">일반 카메라의 실제 도포 인식 정확도는 아직 검증되지 않았으며, 도포량과 자외선 차단력을 측정하지 않습니다.</Text>
           </VStack>
         </Grid>
+        <Divider />
+        <VStack gap={2}>
+          <Heading level={2}>오늘의 선케어 타임라인</Heading>
+          <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
+        </VStack>
+        <CareDashboard />
       </VStack>
       <Divider />
       <Text as="p" type="supporting">2026 SunGuard contributors · 시각 기준: 대한민국(Asia/Seoul)</Text>
