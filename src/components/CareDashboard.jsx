@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CurrentUV from './CurrentUV.jsx';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -80,6 +81,8 @@ export default function CareDashboard({ model }) {
             <Text type="supporting">{model.locationStatus}</Text>
           </HStack>
           {forecast && <Text type="supporting">기상청 · 발표 {formatDate(Date.parse(forecast.publishedAt))} {formatTime(Date.parse(forecast.publishedAt))} · 조회 {formatTime(Date.parse(forecast.fetchedAt))} · 조회 후 1시간이 지나면 다시 확인이 필요합니다.</Text>}
+          <Divider />
+          <CurrentUV now={now} />
         </VStack>
       </Section>
       <Section padding={4}>
