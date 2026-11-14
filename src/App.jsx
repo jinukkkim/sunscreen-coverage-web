@@ -7,6 +7,7 @@ import { Grid } from '@astryxdesign/core/Grid';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Divider } from '@astryxdesign/core/Divider';
+import { Button } from '@astryxdesign/core/Button';
 import { REGIONS } from './lib/face-regions.js';
 
 const phaseLabels = {
@@ -22,6 +23,7 @@ export default function App() {
       <HStack as="header" hAlign="between" vAlign="center" wrap="wrap" gap={3}>
         <Text type="large" weight="bold">SunGuard</Text>
         <Text type="supporting">매일 이어가는 선케어</Text>
+        <Button label="얼굴 크기·사용량 가이드" onClick={() => window.location.assign('/face-dose.html')} />
       </HStack>
       <Divider />
       <VStack as="main" gap={6}>

@@ -57,3 +57,12 @@ test('local vision models run on a synthetic stream and camera stop releases it'
   expect(await page.evaluate(() => window.syntheticCamera.getTracks().every(track => track.readyState === 'ended'))).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('the face-dose guide opens from the main SunGuard screen', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '얼굴 크기·사용량 가이드', exact: true }).click();
+  await expect(page).toHaveURL(/\/face-dose\.html$/);
+  await expect(page.locator('h1')).toContainText('나만의 적정량');
+  await expect(page.getByRole('button', { name: '카메라 켜기' })).toBeVisible();
+  await expect(page.getByText('확인 전', { exact: true })).toBeVisible();
+});
