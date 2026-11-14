@@ -21,7 +21,7 @@
 - Reset controls must be available while recovering and awaiting rescan.
 
 ### Task 1: Preserve progress and recover tracking
-**Files:** src/lib/rubbing-tracker.js, src/lib/vision-session.js, src/components/Camera.jsx, src/components/RecognitionPanel.jsx, tests/vision-session.test.js, tests/rubbing-tracker.test.js, tests/e2e/motion-completion.spec.js.
+**Files:** README.md, src/lib/rubbing-tracker.js, src/lib/vision-session.js, src/components/Camera.jsx, src/components/RecognitionPanel.jsx, tests/vision-session.test.js, tests/rubbing-tracker.test.js, tests/e2e/motion-completion.spec.js.
 **Interfaces:** tracker.interrupt() clears active hand tracks and timing only; snapshot/reset/update retain their interfaces. Session emits phase recovering during short loss and scanning/ready after longer interruptions.
 
 - [x] Add regression tests for missing and invalid face recovery, 2000ms boundary, sustained loss, no accumulated missing time, preserved completed regions/session ID, hidden/stalled/multiple-face rescan, explicit reset/stop.
@@ -29,4 +29,4 @@
 - [x] Implement tracker.interrupt(), recoverable interruption and persistent confirmation. Keep original geometry validity gates and initial scan requirements.
 - [x] Add recovering label, preservation guidance and reset controls; extend completion E2E with temporary face loss and return.
 - [x] Run npm test, npm run build, npm run test:e2e, npx --no-install astryx doctor --built dist; expect zero test/build failures.
-- [ ] Commit fix(src): preserve motion progress across tracking interruptions; no push until requested.
+- [x] Commit fix(src): preserve motion progress across tracking interruptions; no push until requested.
