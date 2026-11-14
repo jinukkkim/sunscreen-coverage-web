@@ -11,7 +11,7 @@ import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 
 const phaseLabels = {
   stopped: '카메라 대기', loading: '인식 준비 중', scanning: '얼굴 스캔 중',
-  ready: '부위 확인 대기', tracking: '동작 관찰 중', completed: '동작 관찰 완료', error: '분석 재시도 필요',
+  ready: '부위 확인 대기', recovering: '인식 복구 대기', tracking: '동작 관찰 중', completed: '동작 관찰 완료', error: '분석 재시도 필요',
 };
 const statusLabels = { pending: '아직 감지되지 않음', observing: '동작 관찰 중', detected: '도포 동작 감지' };
 

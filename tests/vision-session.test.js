@@ -58,11 +58,11 @@ test('requires stable face scan and explicit confirmation before accumulating mo
   assert.equal(f.callbacks.size, 0);
 });
 
-test('tracking loss and multiple faces invalidate the scan and progress', async () => {
+test('tracking loss pauses and multiple faces require a new scan', async () => {
   for (const faces of [[], [face(), face()]]) {
     const f = fixture(); await ready(f); f.session.confirmScan();
     f.input.faces = faces; f.tick(1100);
-    assert.equal(f.last.phase, 'scanning');
+    assert.equal(f.last.phase, faces.length ? 'scanning' : 'recovering');
     assert.equal(f.last.detectedCount, 0);
     assert.equal(f.session.confirmScan(), false);
     f.session.stop();
@@ -169,7 +169,7 @@ test('a frozen video invalidates a ready scan before another frame arrives', asy
   f.session.stop();
 });
 
-test('a frozen video clears detected regions during tracking before video resumes', async () => {
+test('a frozen video preserves detected regions and requires confirmation', async () => {
   const f = fixture(); await ready(f); f.session.confirmScan();
   for (let t = 1100; t <= 3400; t += 100) {
     f.input.hands = [hand(.30 + .04 * (1 - Math.abs((t % 400) / 200 - 1)), .53)];
@@ -178,7 +178,7 @@ test('a frozen video clears detected regions during tracking before video resume
   assert.equal(f.last.detectedCount, 1);
   for (let t = 3500; t <= 5000; t += 100) f.tick(t, false);
   assert.equal(f.last.phase, 'scanning');
-  assert.equal(f.last.detectedCount, 0);
+  assert.equal(f.last.detectedCount, 1);
   assert.equal(f.session.confirmScan(), false);
   f.tick(5100);
   assert.equal(f.last.phase, 'scanning');
@@ -212,8 +212,90 @@ test('an interrupted partial observation never emits a completion', async () => 
   }
   assert.ok(f.last.progress > 0 && f.last.progress < 100);
   f.input.faces = []; f.tick(2100);
-  assert.equal(f.last.progress, 0);
-  assert.equal(f.last.sessionId, null);
+  assert.ok(f.last.progress > 0 && f.last.progress < 100);
+  assert.ok(f.last.sessionId);
   assert.equal(f.updates.some(update => update.phase === 'completed'), false);
   f.session.stop();
+});
+
+async function partial(f) {
+  await ready(f); f.session.confirmScan();
+  for (let t = 1100; t <= 2600; t += 100) {
+    f.input.hands = [regionHand('rightCheek', t)]; f.tick(t);
+  }
+  assert.ok(f.last.progress > 0 && f.last.progress < 20);
+  return { progress: f.last.progress, sessionId: f.last.sessionId };
+}
+
+test('brief face loss or invalid pose preserves progress and resumes without adding missing motion', async () => {
+  for (const invalid of [[], [face().map(p => ({ ...p, x: p.x + .4 }))]]) {
+    const f = fixture(); const before = await partial(f);
+    f.input.faces = invalid;
+    for (let t = 2700; t <= 3000; t += 100) f.tick(t);
+    assert.equal(f.last.phase, 'recovering');
+    assert.equal(f.last.geometry, null);
+    assert.equal(f.last.progress, before.progress);
+    assert.equal(f.last.sessionId, before.sessionId);
+    f.input.faces = [face()];
+    for (let t = 3100; t <= 4000; t += 100) {
+      f.input.hands = [regionHand('rightCheek', t)]; f.tick(t);
+    }
+    assert.equal(f.last.phase, 'tracking');
+    assert.equal(f.last.detectedCount, 0);
+    assert.equal(f.last.progress, before.progress);
+    f.session.stop();
+  }
+});
+
+test('the 2000ms recovery boundary requires rescan while 1900ms automatically resumes', async () => {
+  for (const duration of [1900, 2000]) {
+    const f = fixture(); const before = await partial(f);
+    f.input.faces = [];
+    for (let t = 2700; t < 2700 + duration; t += 100) f.tick(t);
+    f.input.faces = [face()]; f.tick(2700 + duration);
+    assert.equal(f.last.phase, duration === 1900 ? 'tracking' : 'scanning');
+    assert.equal(f.last.progress, before.progress);
+    assert.equal(f.last.sessionId, before.sessionId);
+    if (duration === 2000) {
+      for (let t = 4800; t <= 5700; t += 100) f.tick(t);
+      assert.equal(f.last.phase, 'ready');
+      assert.equal(f.session.confirmScan(), true);
+      assert.equal(f.last.progress, before.progress);
+      assert.equal(f.last.sessionId, before.sessionId);
+    }
+    f.session.stop();
+  }
+});
+
+test('hidden tabs, unreadable video, multiple faces and stalled frames preserve progress through reconfirmation', async () => {
+  for (const cause of ['hidden', 'unreadable', 'multiple', 'stalled']) {
+    const f = fixture(); const before = await partial(f);
+    if (cause === 'hidden') f.input.visible = false;
+    if (cause === 'unreadable') f.video.readyState = 1;
+    if (cause === 'multiple') f.input.faces = [face(), face()];
+    if (cause === 'stalled') {
+      for (let t = 2700; t <= 3300; t += 100) f.tick(t, false);
+    } else f.tick(3300);
+    assert.equal(f.last.phase, 'scanning');
+    assert.equal(f.last.progress, before.progress);
+    f.input.visible = true; f.video.readyState = 2; f.input.faces = [face()];
+    for (let t = 3400; t <= 4500; t += 100) f.tick(t);
+    assert.equal(f.last.phase, 'ready');
+    assert.equal(f.session.confirmScan(), true);
+    assert.equal(f.last.progress, before.progress);
+    assert.equal(f.last.sessionId, before.sessionId);
+    f.session.stop();
+  }
+});
+
+test('explicit restart and stop clear preserved progress and session identity', async () => {
+  for (const action of ['reset', 'stop']) {
+    const f = fixture(); await partial(f);
+    f.input.faces = []; f.tick(2700);
+    f.session[action]();
+    assert.equal(f.last.progress, 0);
+    assert.equal(f.last.sessionId, null);
+    assert.equal(f.last.phase, action === 'reset' ? 'scanning' : 'stopped');
+    f.session.stop();
+  }
 });
