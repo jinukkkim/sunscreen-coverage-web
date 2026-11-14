@@ -28,8 +28,8 @@ export default function App() {
         <RecognitionPanel onComplete={model.completeMotion} />
         <Divider />
         <VStack gap={2}>
-          <Heading level={2}>오늘의 선케어 타임라인</Heading>
-          <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
+          <Heading level={2}>다음 재도포 일정</Heading>
+          <Text>최신 UV와 직전 도포 시각으로 앞으로 언제 덧바를지 안내합니다.</Text>
         </VStack>
         <CareDashboard model={model} />
         <Divider />

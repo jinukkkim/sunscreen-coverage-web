@@ -124,3 +124,18 @@ export function timeline(state, now, forecast = null) {
   }
   return rows.sort((a, b) => a.at - b.at);
 }
+
+// Upcoming guidance assumes an overdue application happens now; never build
+// future advice on missed applications as if they had actually happened.
+export function upcomingTimeline(state, now, forecast = null) {
+  const rows = [];
+  let plan = nextDue(state, now, forecast);
+  while (plan) {
+    const immediate = rows.length === 0 && plan.at <= now;
+    const at = Math.max(now, plan.at);
+    rows.push({ ...plan, at, id: `upcoming-${at}`, immediate,
+      label: rows.length === 0 ? '다음 재도포' : '이때 다시 바르세요', conditional: rows.length > 0 });
+    plan = nextPlan(at, at, forecast, now, dailyEnd(state, now));
+  }
+  return rows;
+}
