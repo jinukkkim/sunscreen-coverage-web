@@ -19,7 +19,7 @@ const optionStyle = selected => ({ display: 'block', cursor: 'pointer', padding:
 const adapter = createVisionAdapter();
 
 // Photos are taken with the OS camera through a file input, not a getUserMedia stream, so this
-// component never competes with the face camera in Camera.jsx for the device.
+// component never competes with the shared face camera for the device.
 export default function ProductSetup({ storage = window.localStorage }) {
   const [saved, setSaved] = useState(() => loadProfile(storage));
   const [mode, setMode] = useState('idle'); // idle | recognizing | choose | draft
