@@ -12,6 +12,7 @@
 4. [기본 카메라 도포 인식의 가능성과 한계](sunguard/03-recognition-feasibility.md)
 5. [출처와 확인 범위](sunguard/04-sources.md)
 6. [도포 동작 검증 기록](sunguard/05-motion-validation.md)
+7. [얼굴 면적·손가락 사용량 실험 가이드](sunguard/06-face-dose-guide.md)
 
 ## 구현 설계
 
