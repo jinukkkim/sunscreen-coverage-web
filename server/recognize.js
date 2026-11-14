@@ -172,10 +172,16 @@ function averageConfidence(confidence) {
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.
-export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch = globalThis.fetch, timeoutMs = 90_000, thinkingLevel = 'low', log = console.error }) {
+// Transient provider errors (503 high demand, 429) are retried once after a short pause, then
+// once more on the fallback model, so a busy spike does not fail the user's photo.
+export function createGeminiCaller({
+  apiKey, model = 'gemini-3.8-flash', fallbackModel = 'gemini-3.5-flash-lite', fetch = globalThis.fetch,
+  timeoutMs = 90_000, thinkingLevel = 'low', retryDelayMs = 1500, log = console.error, sleep = ms => new Promise(r => setTimeout(r, ms)),
+}) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  return async function callModel({ prompt, images }) {
+
+  async function attempt(targetModel, { prompt, images }) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -198,9 +204,10 @@ export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch =
         let detail = '';
         try { detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 300); } catch { /* ignore */ }
         // Logged for the operator; never includes the image or the key.
-        log(`[recognize] provider responded ${response.status} for model ${model}: ${detail}`);
+        log(`[recognize] provider responded ${response.status} for model ${targetModel}: ${detail}`);
         const hint = response.status === 404 ? ' (모델 이름을 확인하세요: GEMINI_MODEL)'
-          : [400, 401, 403].includes(response.status) ? ' (API 키를 확인하세요)' : '';
+          : [400, 401, 403].includes(response.status) ? ' (API 키를 확인하세요)'
+            : [429, 503].includes(response.status) ? ' 모델이 혼잡합니다. 잠시 후 다시 시도해 주세요.' : '';
         const status = response.status === 429 ? 429 : 502;
         throw new RecognitionError('model-unavailable', `분석 서비스를 사용할 수 없습니다.${hint} 직접 입력해 주세요.`, status, response.status);
       }
@@ -214,6 +221,24 @@ export function createGeminiCaller({ apiKey, model = 'gemini-3.8-flash', fetch =
       throw new RecognitionError('model-unavailable', '분석 서비스에 연결하지 못했습니다.', 502);
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  const transient = error => error instanceof RecognitionError && ([429, 503].includes(error.providerStatus) || error.code === 'timeout');
+
+  return async function callModel(request) {
+    try {
+      return await attempt(model, request);
+    } catch (first) {
+      if (!transient(first)) throw first;
+      await sleep(retryDelayMs);
+      try {
+        return await attempt(model, request);
+      } catch (second) {
+        if (!transient(second) || !fallbackModel || fallbackModel === model) throw second;
+        log(`[recognize] falling back to ${fallbackModel}`);
+        return attempt(fallbackModel, request);
+      }
     }
   };
 }

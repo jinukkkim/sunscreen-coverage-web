@@ -112,7 +112,7 @@ test('gemini caller sends the key in a header, requests JSON and extracts the te
 });
 
 test('gemini caller converts provider failures into recognition errors', async () => {
-  const limited = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: false, status: 429, text: async () => 'quota' }), log: () => {} });
+  const limited = createGeminiCaller({ apiKey: 'k', fetch: async () => ({ ok: false, status: 429, text: async () => 'quota' }), log: () => {}, sleep: async () => {} });
   await assert.rejects(limited({ prompt: 'p', images: [jpeg()] }), { code: 'model-unavailable', status: 429, providerStatus: 429 });
   const logged = [];
   const notFound = createGeminiCaller({ apiKey: 'secret-key', model: 'm', fetch: async () => ({ ok: false, status: 404, text: async () => '{"error":{"message":"model not found"}}' }), log: m => logged.push(m) });
@@ -162,4 +162,34 @@ test('parseModelOutput puts the top-level reading first when candidates disagree
   assert.equal(r.candidates[0].brand, 'Biore');
   assert.equal(r.candidates[1].brand, 'Other');
   assert.equal(r.candidates[1].form, 'gel');
+});
+
+
+test('gemini caller retries a busy model once, then falls back to the lite model', async () => {
+  const calls = [];
+  const fetch = async url => {
+    calls.push(url);
+    if (url.includes('gemini-3.8-flash')) return { ok: false, status: 503, text: async () => 'high demand' };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '{"ok":1}' }] } }] }) };
+  };
+  const call = createGeminiCaller({ apiKey: 'k', fetch, log: () => {}, sleep: async () => {} });
+  assert.equal(await call({ prompt: 'p', images: [jpeg()] }), '{"ok":1}');
+  assert.equal(calls.length, 3);
+  assert.match(calls[0], /gemini-3\.8-flash/);
+  assert.match(calls[1], /gemini-3\.8-flash/);
+  assert.match(calls[2], /gemini-3\.5-flash-lite/);
+});
+
+test('gemini caller does not retry non-transient failures', async () => {
+  let n = 0;
+  const call = createGeminiCaller({ apiKey: 'k', fetch: async () => { n += 1; return { ok: false, status: 404, text: async () => '' }; }, log: () => {}, sleep: async () => {} });
+  await assert.rejects(call({ prompt: 'p', images: [jpeg()] }), { providerStatus: 404 });
+  assert.equal(n, 1);
+});
+
+test('gemini caller gives up after the fallback is also busy', async () => {
+  let n = 0;
+  const call = createGeminiCaller({ apiKey: 'k', fetch: async () => { n += 1; return { ok: false, status: 503, text: async () => 'busy' }; }, log: () => {}, sleep: async () => {} });
+  await assert.rejects(call({ prompt: 'p', images: [jpeg()] }), { providerStatus: 503, message: /혼잡/ });
+  assert.equal(n, 3);
 });
