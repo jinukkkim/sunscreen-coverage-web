@@ -51,19 +51,42 @@ export async function recognizeLabel(images, { adapter, signal } = {}) {
   return adapter(images, signal);
 }
 
-// Turn a server result into an editable profile draft. Nothing here is saved; the user confirms.
-export function draftFromRecognition(result) {
+// The ranked readings the server offers. Older servers return none; then the top-level
+// reading is the only candidate.
+export function candidatesFromRecognition(result) {
+  const list = Array.isArray(result.candidates) && result.candidates.length ? result.candidates : [result];
+  return list.slice(0, 3).map((c, index) => ({
+    index,
+    brand: c.brand ?? '',
+    productName: c.productName ?? '',
+    sellerName: c.sellerName ?? '',
+    spf: Number.isInteger(c.spf) ? c.spf : null,
+    spfPlus: Boolean(c.spfPlus),
+    paGrade: [1, 2, 3, 4].includes(c.paGrade) ? c.paGrade : null,
+    form: c.form ?? 'unknown',
+    waterResistance: c.waterResistance ?? 'unknown',
+    label: typeof c.label === 'string' ? c.label : '',
+    score: Number.isFinite(c.score) ? c.score : null,
+  }));
+}
+
+export function candidateTitle(candidate) {
+  return [candidate.brand, candidate.productName].filter(Boolean).join(' ').trim() || '이름을 읽지 못함';
+}
+
+// Turn a server result (and the candidate the user picked) into an editable profile draft.
+// Nothing here is saved; the user confirms.
+export function draftFromRecognition(result, candidateIndex = 0) {
+  const candidate = candidatesFromRecognition(result)[candidateIndex] ?? candidatesFromRecognition(result)[0];
   const draft = emptyProfile();
-  const brand = result.brand ?? '';
-  const productName = result.productName ?? '';
-  draft.name = [brand, productName].filter(Boolean).join(' ').trim().slice(0, 60);
-  draft.brand = brand;
-  draft.sellerName = result.sellerName ?? '';
-  draft.spf = Number.isInteger(result.spf) ? result.spf : null;
-  draft.spfPlus = Boolean(result.spfPlus);
-  draft.paGrade = [1, 2, 3, 4].includes(result.paGrade) ? result.paGrade : null;
-  draft.form = result.form ?? 'unknown';
-  draft.waterResistance = result.waterResistance ?? 'unknown';
+  draft.name = candidateTitle(candidate) === '이름을 읽지 못함' ? '' : candidateTitle(candidate).slice(0, 60);
+  draft.brand = candidate.brand;
+  draft.sellerName = candidate.sellerName;
+  draft.spf = candidate.spf;
+  draft.spfPlus = candidate.spfPlus && candidate.spf !== null;
+  draft.paGrade = candidate.paGrade;
+  draft.form = candidate.form;
+  draft.waterResistance = candidate.waterResistance;
   draft.ingredients = Array.isArray(result.ingredients) ? result.ingredients : [];
   draft.source = 'photo-ai';
   draft.confidence = { ...(result.confidence ?? {}) };

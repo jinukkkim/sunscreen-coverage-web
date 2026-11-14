@@ -24,6 +24,7 @@
    ├─ (A) 사진으로 읽기: 앞면(SPF/PA) + 뒷면(전성분·책임판매업자, 선택)
    │        → 동의 체크(기본 해제) → 브라우저에서 축소 → POST /api/recognize
    │        → 비전 모델이 "보이는 것만" JSON으로 전사 → 서버가 스키마 검증
+   │        → 후보 선택 (모델이 돌려준 읽기 1~3개: 한글/영문 표기, 라인명, SPF 표기 차이 등)
    │        → 편집 가능한 초안 (신뢰도 낮은 필드에 "확인 필요")
    └─ (B) 직접 입력: 같은 폼을 빈 상태로
 → "이 정보로 저장" → localStorage → 솔루션 카드 → 다른 기능에 공급
@@ -73,7 +74,7 @@ Solution {
 | `src/lib/productStorage.js` | `loadProfile/saveProfile/clearProfile(storage)` — storage 주입, 키 `sunguard.product.v1`, 손상 데이터는 null | 같은 파일 |
 | `src/lib/image.js` | `checkImageFile`, `downscaleImage`(긴 변 1280px, JPEG 0.85) | 수동(브라우저 전용) |
 | `src/lib/labelRecognition.js` | `createVisionAdapter`(fetch 주입·타임아웃·취소), `recognizeLabel`, `draftFromRecognition`, `needsReview` | `tests/labelRecognition.test.js` |
-| `src/components/ProductSetup.jsx` | 상태 머신 `idle → recognizing → draft`, 동의 체크, 폼, 저장 | 수동 |
+| `src/components/ProductSetup.jsx` | 상태 머신 `idle → recognizing → choose → draft`, 동의 체크, 후보 선택, 폼, 저장 | 수동 |
 | `src/components/ProductSolution.jsx` | 저장된 프로필 + 솔루션 문장 | 수동 |
 | `server/recognize.js` | `buildPrompt`, `RESPONSE_SCHEMA`, `validateImages`, `parseModelOutput`, `createGeminiCaller`, `createRecognizeHandler` | `tests/recognize.test.js` |
 | `server/index.js` | `POST /api/recognize`, `GET /api/health`, `dist/` 정적 서빙 | 수동 |
@@ -98,13 +99,19 @@ Solution {
 - "인쇄된 것만 전사, 추측 금지, 전형적 값으로 채우지 말 것".
 - 못 읽은 필드는 `null`과 `notVisible`로 보고.
 - 성분명은 번역하지 않고 인쇄된 대로(한글/INCI).
+- `candidates`: 제품 식별 필드(브랜드·제품명·책임판매업자·SPF·PA·제형·내수성)의 읽기를 최대 3개, 가능성 높은 순으로. 라벨이 여러 해석을 허용할 때만 복수. 사진에 없는 제품을 만들어 내지 않도록 명시. 서버는 중복을 제거하고 최상위 읽기를 항상 첫 번째로 둔다.
 - Gemini `response_schema`로 JSON 형식을 강제하고, `temperature: 0`.
 
 ### 5.4 서버 측 방어 (`parseModelOutput`)
 
 모델이 스키마를 지켰더라도 다시 검증한다: SPF 15~100 밖 → null + 신뢰도 0, PA 1~4 밖 → null, enum 밖 제형·내수성 → `unknown`, 성분 정규화·200개 제한, `notVisible`은 알려진 필드만, 신뢰도는 0~1로 클램프, 마크다운 코드펜스 제거, JSON 아니면 502. 내부 오류 메시지는 클라이언트에 노출하지 않는다.
 
-### 5.5 제한
+### 5.5 운영 주의
+
+- 기본 모델은 `gemini-3.8-flash`(2026-11 기준 안정 버전). 404가 나면 서버 로그에 구글 응답이 찍히며, `GEMINI_MODEL`로 교체한다. `.env`의 `GEMINI_MODEL`은 코드 기본값보다 우선한다.
+- Windows 콘솔 창을 클릭하면 "선택 모드"가 되어 서버가 로그를 쓰는 순간 멈춘다(요청이 45초 타임아웃까지 걸려 보임). 서버 창은 건드리지 않거나, 멈췄으면 Esc.
+
+### 5.6 제한
 
 사진 최대 2장, 장당 2MB(축소 후), 요청 6MB, JPG/PNG/WebP만. 타임아웃 서버 30초·클라이언트 45초. 429는 그대로 전달해 화면이 "잠시 후 다시 시도"로 안내한다.
 

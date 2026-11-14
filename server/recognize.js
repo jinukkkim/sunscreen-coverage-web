@@ -8,27 +8,48 @@ export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // after client-side downscale
 export const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export const RECOGNITION_FIELDS = ['brand', 'productName', 'sellerName', 'spf', 'spfPlus', 'paGrade', 'form', 'waterResistance', 'ingredients'];
+export const CANDIDATE_FIELDS = ['brand', 'productName', 'sellerName', 'spf', 'spfPlus', 'paGrade', 'form', 'waterResistance'];
+export const MAX_CANDIDATES = 3;
+
+const READING_PROPERTIES = {
+  brand: { type: 'STRING', nullable: true },
+  productName: { type: 'STRING', nullable: true },
+  sellerName: { type: 'STRING', nullable: true, description: '화장품책임판매업자 as printed' },
+  spf: { type: 'INTEGER', nullable: true },
+  spfPlus: { type: 'BOOLEAN' },
+  paGrade: { type: 'INTEGER', nullable: true, description: 'number of + after PA, 1-4' },
+  form: { type: 'STRING', enum: PRODUCT_FORMS },
+  waterResistance: { type: 'STRING', enum: WATER_RESISTANCE },
+};
 
 // Gemini responseSchema (OpenAPI subset). Nullable fields let the model say "not visible".
+// `candidates` holds up to 3 ranked readings of the product identity; the top-level fields
+// repeat the best one so older clients keep working.
 export const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    brand: { type: 'STRING', nullable: true },
-    productName: { type: 'STRING', nullable: true },
-    sellerName: { type: 'STRING', nullable: true, description: '화장품책임판매업자 as printed' },
-    spf: { type: 'INTEGER', nullable: true },
-    spfPlus: { type: 'BOOLEAN' },
-    paGrade: { type: 'INTEGER', nullable: true, description: 'number of + after PA, 1-4' },
-    form: { type: 'STRING', enum: PRODUCT_FORMS },
-    waterResistance: { type: 'STRING', enum: WATER_RESISTANCE },
+    ...READING_PROPERTIES,
     ingredients: { type: 'ARRAY', items: { type: 'STRING' } },
     confidence: {
       type: 'OBJECT',
       properties: Object.fromEntries(RECOGNITION_FIELDS.map(f => [f, { type: 'NUMBER' }])),
     },
     notVisible: { type: 'ARRAY', items: { type: 'STRING' } },
+    candidates: {
+      type: 'ARRAY',
+      description: 'Up to 3 alternative readings of the product identity, best first',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          ...READING_PROPERTIES,
+          label: { type: 'STRING', description: 'short Korean note on how this reading differs' },
+          score: { type: 'NUMBER', description: '0-1 likelihood that this reading is correct' },
+        },
+        required: ['spfPlus', 'form', 'waterResistance', 'score'],
+      },
+    },
   },
-  required: ['spfPlus', 'form', 'waterResistance', 'ingredients', 'confidence', 'notVisible'],
+  required: ['spfPlus', 'form', 'waterResistance', 'ingredients', 'confidence', 'notVisible', 'candidates'],
 };
 
 export function buildPrompt() {
@@ -46,7 +67,8 @@ export function buildPrompt() {
     '- ingredients: the full ingredient list in printed order, one entry per ingredient, exactly as printed (Korean or INCI). Empty array if no ingredient list is visible.',
     '- confidence: 0 to 1 per field for how legible the printed value was.',
     '- notVisible: names of fields you could not read from the photos.',
-    'Do not add fields. Do not translate ingredient names. Do not fill a value because it is typical for sunscreens.',
+    '- candidates: 1 to 3 readings of the product identity (brand, productName, sellerName, spf, spfPlus, paGrade, form, waterResistance), best first, each with a score 0-1 and a short Korean label saying how it differs (e.g. "영문 표기", "라인명을 제품명으로", "SPF 30 표기 기준"). Give more than one only when the label genuinely allows different readings: Korean vs English name, brand vs product line, two SPF/PA figures, several products in one photo. The first candidate must equal the top-level fields.',
+    'Do not add fields. Do not translate ingredient names. Do not fill a value because it is typical for sunscreens. Never invent a product that is not in the photos.',
   ].join('\n');
 }
 
@@ -91,18 +113,43 @@ export function parseModelOutput(text) {
     confidence[field] = Number.isFinite(c) ? Math.min(1, Math.max(0, c)) : 0;
   }
 
+  const best = coerceReading(raw, confidence);
+  const ingredients = Array.isArray(raw.ingredients)
+    ? raw.ingredients.map(normalizeIngredient).filter(Boolean).slice(0, 200) : [];
+  const notVisible = Array.isArray(raw.notVisible) ? raw.notVisible.filter(v => RECOGNITION_FIELDS.includes(v)) : [];
+
+  const candidates = [];
+  const seen = new Set();
+  const push = (reading, label, score) => {
+    const key = [reading.brand, reading.productName, reading.spf, reading.spfPlus, reading.paGrade, reading.form, reading.waterResistance].join('|').toLowerCase();
+    if (seen.has(key) || candidates.length >= MAX_CANDIDATES) return;
+    seen.add(key);
+    candidates.push({ ...reading, label, score });
+  };
+  const rawCandidates = Array.isArray(raw.candidates) ? raw.candidates : [];
+  for (const item of rawCandidates) {
+    if (!item || typeof item !== 'object') continue;
+    const score = Number(item.score);
+    push(coerceReading(item, {}), typeof item.label === 'string' ? item.label.trim().slice(0, 40) : '', Number.isFinite(score) ? Math.min(1, Math.max(0, score)) : 0);
+  }
+  // The best reading is always offered, first, even if the model omitted candidates.
+  if (!candidates.length || !sameReading(candidates[0], best)) {
+    candidates.unshift({ ...best, label: '', score: averageConfidence(confidence) });
+    if (candidates.length > MAX_CANDIDATES) candidates.length = MAX_CANDIDATES;
+  }
+
+  return { ...best, ingredients, confidence, notVisible, candidates };
+}
+
+function coerceReading(raw, confidence) {
   const str = v => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null);
   let spf = Number.isInteger(raw.spf) ? raw.spf : null;
   if (spf !== null && (spf < 15 || spf > 100)) { spf = null; confidence.spf = 0; }
   let paGrade = Number.isInteger(raw.paGrade) ? raw.paGrade : null;
   if (paGrade !== null && (paGrade < 1 || paGrade > 4)) { paGrade = null; confidence.paGrade = 0; }
   const form = PRODUCT_FORMS.includes(raw.form) ? raw.form : 'unknown';
-  if (form === 'unknown') confidence.form = Math.min(confidence.form, 0.5);
+  if (form === 'unknown' && confidence.form !== undefined) confidence.form = Math.min(confidence.form, 0.5);
   const waterResistance = WATER_RESISTANCE.includes(raw.waterResistance) ? raw.waterResistance : 'unknown';
-  const ingredients = Array.isArray(raw.ingredients)
-    ? raw.ingredients.map(normalizeIngredient).filter(Boolean).slice(0, 200) : [];
-  const notVisible = Array.isArray(raw.notVisible) ? raw.notVisible.filter(v => RECOGNITION_FIELDS.includes(v)) : [];
-
   return {
     brand: str(raw.brand),
     productName: str(raw.productName),
@@ -112,10 +159,16 @@ export function parseModelOutput(text) {
     paGrade,
     form,
     waterResistance,
-    ingredients,
-    confidence,
-    notVisible,
   };
+}
+
+function sameReading(a, b) {
+  return CANDIDATE_FIELDS.every(f => (a[f] ?? null) === (b[f] ?? null));
+}
+
+function averageConfidence(confidence) {
+  const values = CANDIDATE_FIELDS.map(f => confidence[f] ?? 0);
+  return Math.round(values.reduce((x, y) => x + y, 0) / values.length * 100) / 100;
 }
 
 // Gemini REST call. Kept tiny and dependency-free; swap this function to use another provider.

@@ -133,3 +133,32 @@ test('prompt forbids guessing and documents every enum', () => {
   assert.match(prompt, /Never guess/);
   for (const token of ['cream', 'spray', '40min', '80min', 'notVisible', '책임판매업자']) assert.ok(prompt.includes(token), token);
 });
+
+test('parseModelOutput keeps at most three distinct candidates, best first', () => {
+  const r = parseModelOutput(fixture('full-label.json'));
+  assert.equal(r.candidates.length, 3);
+  assert.equal(r.candidates[0].productName, '자작나무 수분 선크림');
+  assert.equal(r.candidates[0].label, '한글 표기');
+  assert.equal(r.candidates[0].score, 0.9);
+  assert.equal(r.candidates[1].brand, 'ROUND LAB');
+  assert.equal(r.candidates[2].spf, 30, 'duplicate reading is skipped so the SPF 30 reading fits');
+  assert.equal(r.candidates[2].spfPlus, false);
+  assert.ok(!r.candidates.some(c => c.brand === 'X'));
+});
+
+test('parseModelOutput synthesises one candidate when the model returns none', () => {
+  const r = parseModelOutput(fixture('front-only.json'));
+  assert.equal(r.candidates.length, 1);
+  assert.equal(r.candidates[0].brand, 'Biore');
+  assert.equal(r.candidates[0].label, '');
+  assert.ok(r.candidates[0].score > 0 && r.candidates[0].score <= 1);
+});
+
+test('parseModelOutput puts the top-level reading first when candidates disagree with it', () => {
+  const text = JSON.stringify({ ...JSON.parse(fixture('front-only.json')), candidates: [{ brand: 'Other', productName: 'Thing', spfPlus: false, form: 'gel', waterResistance: 'unknown', score: 0.9 }] });
+  const r = parseModelOutput(text);
+  assert.equal(r.candidates.length, 2);
+  assert.equal(r.candidates[0].brand, 'Biore');
+  assert.equal(r.candidates[1].brand, 'Other');
+  assert.equal(r.candidates[1].form, 'gel');
+});

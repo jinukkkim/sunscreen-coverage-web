@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../src/lib/labelRecognition.js';
+import { candidateTitle, candidatesFromRecognition, createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../src/lib/labelRecognition.js';
 import { validateProfile } from '../src/lib/product.js';
 import { parseModelOutput } from '../server/recognize.js';
 
@@ -69,4 +69,27 @@ test('draftFromRecognition never produces an invalid profile from bad model outp
   assert.equal(draft.spf, null);
   assert.equal(draft.form, 'unknown');
   assert.equal(validateProfile(draft).ok, true);
+});
+
+test('candidatesFromRecognition exposes ranked readings and draft follows the pick', () => {
+  const result = parseModelOutput(JSON.stringify(fixture('full-label.json')));
+  const list = candidatesFromRecognition(result);
+  assert.equal(list.length, 3);
+  assert.equal(candidateTitle(list[1]), 'ROUND LAB Birch Juice Moisturizing Sun Cream');
+  const english = draftFromRecognition(result, 1);
+  assert.equal(english.name, 'ROUND LAB Birch Juice Moisturizing Sun Cream');
+  assert.equal(english.spf, 50);
+  assert.deepEqual(english.ingredients, draftFromRecognition(result, 0).ingredients, 'ingredients are shared across candidates');
+  const spf30 = draftFromRecognition(result, 2);
+  assert.equal(spf30.spf, 30);
+  assert.equal(spf30.form, 'lotion');
+  assert.equal(validateProfile(spf30).ok, true);
+  assert.equal(draftFromRecognition(result, 99).name, draftFromRecognition(result, 0).name, 'out-of-range index falls back to best');
+});
+
+test('candidatesFromRecognition falls back to the top-level reading for old servers', () => {
+  const list = candidatesFromRecognition({ brand: 'B', productName: 'P', spf: 50, spfPlus: true, paGrade: 2, form: 'stick', waterResistance: '40min', ingredients: [] });
+  assert.equal(list.length, 1);
+  assert.equal(candidateTitle(list[0]), 'B P');
+  assert.equal(list[0].score, null);
 });

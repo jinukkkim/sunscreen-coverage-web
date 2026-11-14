@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PRODUCT_FORMS, WATER_RESISTANCE, emptyProfile, validateProfile } from '../lib/product.js';
 import { clearProfile, loadProfile, saveProfile } from '../lib/productStorage.js';
 import { checkImageFile, downscaleImage } from '../lib/image.js';
-import { createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../lib/labelRecognition.js';
+import { candidateTitle, candidatesFromRecognition, createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../lib/labelRecognition.js';
 import ProductSolution from './ProductSolution.jsx';
 
 const FORM_LABEL = { cream: '크림', lotion: '로션', gel: '젤', stick: '스틱', spray: '스프레이', unknown: '모름' };
@@ -13,17 +13,28 @@ const adapter = createVisionAdapter();
 // component never competes with the face camera in Camera.jsx for the device.
 export default function ProductSetup({ storage = window.localStorage }) {
   const [saved, setSaved] = useState(() => loadProfile(storage));
-  const [mode, setMode] = useState('idle'); // idle | recognizing | draft
+  const [mode, setMode] = useState('idle'); // idle | recognizing | choose | draft
   const [draft, setDraft] = useState(emptyProfile);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [consent, setConsent] = useState(false);
   const [notVisible, setNotVisible] = useState([]);
+  const [result, setResult] = useState(null);
+  const [candidates, setCandidates] = useState([]);
+  const [picked, setPicked] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const front = useRef(null);
   const back = useRef(null);
   const abort = useRef(null);
 
   useEffect(() => () => abort.current?.abort(), []);
+
+  useEffect(() => {
+    if (mode !== 'recognizing') return undefined;
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [mode]);
 
   function reset() {
     abort.current?.abort();
@@ -32,6 +43,9 @@ export default function ProductSetup({ storage = window.localStorage }) {
     setErrors({});
     setError('');
     setNotVisible([]);
+    setResult(null);
+    setCandidates([]);
+    setPicked(0);
   }
 
   function startManual() {
@@ -55,11 +69,13 @@ export default function ProductSetup({ storage = window.localStorage }) {
     try {
       const images = await Promise.all(files.map(file => downscaleImage(file)));
       if (controller.signal.aborted) return;
-      const result = await recognizeLabel(images.map(({ mimeType, data }) => ({ mimeType, data })), { adapter, signal: controller.signal });
+      const recognized = await recognizeLabel(images.map(({ mimeType, data }) => ({ mimeType, data })), { adapter, signal: controller.signal });
       if (controller.signal.aborted) return;
-      setDraft(draftFromRecognition(result));
-      setNotVisible(result.notVisible ?? []);
-      setMode('draft');
+      setResult(recognized);
+      setNotVisible(recognized.notVisible ?? []);
+      setCandidates(candidatesFromRecognition(recognized));
+      setPicked(0);
+      setMode('choose');
     } catch (cause) {
       if (controller.signal.aborted && cause.code === 'cancelled') return;
       setMode('idle');
@@ -70,6 +86,13 @@ export default function ProductSetup({ storage = window.localStorage }) {
   function cancel() {
     abort.current?.abort();
     setMode('idle');
+  }
+
+  function chooseCandidate() {
+    if (!result) return;
+    setDraft(draftFromRecognition(result, picked));
+    setErrors({});
+    setMode('draft');
   }
 
   function update(field, value) {
@@ -103,7 +126,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
   return (
     <section className="card" aria-labelledby="product-title">
       <h2 id="product-title">내 선크림 등록</h2>
-      {mode !== 'draft' && (
+      {(mode === 'idle' || mode === 'recognizing') && (
         <>
           <p>제품 앞면(SPF·PA)과 뒷면(전성분·책임판매업자)을 찍으면 라벨을 읽어 초안을 만듭니다. 결과는 저장 전에 직접 확인·수정합니다.</p>
           <div className="field-grid">
@@ -114,7 +137,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
             <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={mode === 'recognizing'} />
             제품 사진을 분석 서버를 거쳐 외부 AI 모델(Google Gemini)로 전송하는 데 동의합니다. 사진은 저장되지 않으며 얼굴 카메라 영상은 전송되지 않습니다.
           </label>
-          <p role="status">{mode === 'recognizing' ? '라벨을 읽고 있습니다. 보통 10초 안에 끝납니다.' : ''}</p>
+          <p role="status">{mode === 'recognizing' ? `라벨을 읽고 있습니다. (${elapsed}초 경과 · 최대 45초)` : ''}</p>
           {error && <p role="alert">{error}</p>}
           <div className="actions">
             <button onClick={analyze} disabled={mode === 'recognizing'}>사진으로 읽기</button>
@@ -123,6 +146,38 @@ export default function ProductSetup({ storage = window.localStorage }) {
               : <button className="secondary" onClick={startManual}>직접 입력</button>}
           </div>
         </>
+      )}
+      {mode === 'choose' && (
+        <div>
+          <p className="badge">사진에서 읽은 후보 {candidates.length}개</p>
+          <p>내 제품과 맞는 항목을 고르세요. 다음 화면에서 값을 수정할 수 있습니다.</p>
+          <div className="candidates" role="radiogroup" aria-label="제품 후보">
+            {candidates.map(c => (
+              <label key={c.index} className={`candidate${picked === c.index ? ' selected' : ''}`}>
+                <input type="radio" name="candidate" value={c.index} checked={picked === c.index} onChange={() => setPicked(c.index)} />
+                <span className="candidate-body">
+                  <strong>{candidateTitle(c)}</strong>
+                  <span className="muted">
+                    {c.spf === null ? 'SPF 미확인' : `SPF ${c.spf}${c.spfPlus ? '+' : ''}`}
+                    {' · '}{c.paGrade === null ? 'PA 미확인' : `PA${'+'.repeat(c.paGrade)}`}
+                    {' · '}{FORM_LABEL[c.form] ?? c.form}
+                    {c.waterResistance !== 'unknown' ? ` · 내수성 ${WATER_LABEL[c.waterResistance]}` : ''}
+                    {c.sellerName ? ` · ${c.sellerName}` : ''}
+                  </span>
+                  {(c.label || c.score !== null) && (
+                    <span className="muted">{[c.label, c.score !== null ? `가능성 ${Math.round(c.score * 100)}%` : ''].filter(Boolean).join(' · ')}</span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+          {notVisible.length > 0 && <p className="muted">사진에서 읽지 못한 항목: {notVisible.length}개 — 다음 화면에서 채워 주세요.</p>}
+          <div className="actions">
+            <button type="button" onClick={chooseCandidate}>이 제품으로 계속</button>
+            <button type="button" className="secondary" onClick={startManual}>목록에 없음 · 직접 입력</button>
+            <button type="button" className="secondary" onClick={reset}>취소</button>
+          </div>
+        </div>
       )}
       {mode === 'draft' && (
         <form onSubmit={save} noValidate>
