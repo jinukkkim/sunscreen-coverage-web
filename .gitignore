@@ -1,0 +1,31 @@
+# Pre-SunGuard research stays local.
+/archive/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Credentials and local environment
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Web dependencies and generated output
+node_modules/
+dist/
+build/
+.next/
+.vite/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Agent sessions and local QA artifacts
+.superpowers/
+.pr-review/
+qa/
