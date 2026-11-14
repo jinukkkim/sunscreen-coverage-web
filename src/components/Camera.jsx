@@ -157,11 +157,12 @@ export default function Camera({ onAnalysisChange }) {
           <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle'} />
           <Button label={status === 'loading' ? '연결 취소' : '카메라 끄기'} onClick={stop} isDisabled={status === 'idle'} />
           {status === 'active' && !['error', 'completed'].includes(analysis.phase) && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
-          {status === 'active' && analysis.phase === 'tracking' && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
+          {status === 'active' && analysis.sessionId && !['error', 'completed'].includes(analysis.phase) && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
           {status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
           {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
         <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
+        <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>
         <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
       </VStack>
     </Section>

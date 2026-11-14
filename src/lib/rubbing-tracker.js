@@ -15,6 +15,7 @@ export function createRubbingTracker() {
     }));
     return { regions, detectedCount: detected.size, progress: Math.floor(regions.reduce((sum, region) => sum + region.progress, 0) / REGIONS.length) };
   }
+  function interrupt() { tracks = []; lastTimestamp = null; }
   function reset() { detected = new Set(); progress = new Map(); tracks = []; lastTimestamp = null; }
   function update({ geometry, hands = [], timestampMs }) {
     if (!Number.isFinite(timestampMs) || (lastTimestamp !== null && timestampMs <= lastTimestamp)) return snapshot();
@@ -67,5 +68,5 @@ export function createRubbingTracker() {
     tracks = next;
     return snapshot();
   }
-  return { update, reset, snapshot };
+  return { update, reset, interrupt, snapshot };
 }
