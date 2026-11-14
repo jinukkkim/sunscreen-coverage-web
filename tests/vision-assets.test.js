@@ -11,14 +11,14 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const pkg = join(root, 'node_modules/@mediapipe/tasks-vision');
   await mkdir(join(pkg, 'wasm'), { recursive: true });
-  await writeFile(join(pkg, 'package.json'), JSON.stringify({ version: '1.2.3' }));
+  await writeFile(join(pkg, 'package.json'), JSON.stringify({ version: '0.10.32' }));
   await writeFile(join(pkg, 'wasm/vision_wasm_internal.wasm'), 'wasm from pinned package');
   await writeFile(join(pkg, 'wasm/vision_wasm_internal.js'), 'runtime from pinned package');
   await mkdir(join(root, 'third_party/mediapipe'), { recursive: true });
   await writeFile(join(root, 'third_party/mediapipe/LICENSE'), 'Apache License 2.0');
   await writeFile(join(root, 'THIRD_PARTY_NOTICES.md'), 'MediaPipe Authors attribution');
   const bytes = Buffer.from('test model');
-  const manifest = { packageVersion: '1.2.3', models: [
+  const manifest = { packageVersion: '0.10.32', models: [
     { name: 'face_landmarker.task', url: 'https://example.test/model', sha256: createHash('sha256').update(bytes).digest('hex') },
   ] };
   return { root, pkg, bytes, manifest };

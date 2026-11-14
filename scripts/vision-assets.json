@@ -1,5 +1,5 @@
 {
-  "packageVersion": "1.2.3",
+  "packageVersion": "0.10.32",
   "models": [
     {
       "name": "face_landmarker.task",

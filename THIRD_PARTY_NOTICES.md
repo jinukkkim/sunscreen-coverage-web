@@ -6,7 +6,7 @@ Copyright The MediaPipe Authors. Licensed under Apache License 2.0; see [license
 
 `tests/fixtures/canonical-face.json` contains synthetic canonical model vertices from [canonical_face_model.obj](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj), converted to JSON. It contains no participant image or biometric capture.
 
-The unmodified runtime package `@mediapipe/tasks-vision` is pinned to 1.2.3 (Apache-2.0). Its generated JavaScript/WASM files are copied from that package without modification.
+The unmodified runtime package `@mediapipe/tasks-vision` is pinned to 0.10.32 (Apache-2.0). Its generated JavaScript/WASM files are copied from that package without modification.
 
 Official unmodified model assets are pinned to float16/1. URLs and SHA-256 are recorded in `scripts/vision-assets.json`:
 

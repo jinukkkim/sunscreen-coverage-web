@@ -91,7 +91,7 @@ export function createVisionSession({
   }
   async function start() {
     stop(false); const token = generation;
-    phase = 'loading'; emit('얼굴·손 인식 모델을 준비하고 있습니다.');
+    phase = 'loading'; emit('얼굴·손 인식을 준비하고 있습니다.');
     try {
       const next = await loadModels();
       if (token !== generation) { next.close(); return false; }
@@ -99,7 +99,7 @@ export function createVisionSession({
       return true;
     } catch {
       if (token !== generation) return false;
-      release(); blank(); phase = 'error'; emit('인식 모델을 불러오지 못했습니다. 분석을 다시 시도해 주세요.');
+      release(); blank(); phase = 'error'; emit('인식 기능을 준비하지 못했습니다. 분석을 다시 시도해 주세요.');
       return false;
     }
   }

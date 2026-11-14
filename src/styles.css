@@ -24,3 +24,16 @@ a:focus-visible, button:focus-visible { outline: 3px solid #c07813; outline-offs
 [role="alert"] { color: #a32e28; }
 footer { padding: 20px 0; border-top: 1px solid #dce3dc; }
 @media (max-width: 720px) { .workspace, .supporting { grid-template-columns: 1fr; } .app { padding: 0 16px; } .card { padding: 20px; } header span { font-size: 12px; } }
+
+.scan-steps { display: flex; flex-wrap: wrap; gap: 8px 28px; padding-left: 22px; color: #54665d; font-size: 14px; }
+.camera-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.face-guide { position: absolute; left: 28%; top: 12%; width: 44%; height: 76%; border: 2px dashed #ffffff99; border-radius: 48%; pointer-events: none; }
+.camera-status { min-height: 3.2em; }
+.region-results { list-style: none; padding: 0; margin: 20px 0; }
+.region-result { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #dce3dc; }
+.region-result span { color: #54665d; font-size: 14px; text-align: right; }
+.region-result.observing span { color: #865707; font-weight: 650; }
+.region-result.detected span { color: #255d44; font-weight: 750; }
+@media (max-width: 420px) { .actions button { flex: 1 1 auto; } .region-result { gap: 8px; } }
+
+h1 { word-break: keep-all; }
