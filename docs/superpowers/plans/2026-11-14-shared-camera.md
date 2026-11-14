@@ -36,3 +36,7 @@
 - 검토 발견 두 문제: 숨김 중 미완료 권한 요청의 뒤늦은 스트림 해제, 실패한 사용량 재확인 후 이전 값 제거. 각각 재현 테스트 실패 후 수정. 활성 관찰 중 탭 숨김/복구는 기존 진행률 보존 정책을 유지.
 - 390/1440 폭 화면 확인. 실행 중인 localhost:5173 개발 서버에서 변경 제공 확인.
 - 최종 검증: `npm test` 134/134, Chrome E2E 26/26, 프로덕션 빌드 성공, Astryx doctor fail 0 (기존 외부 폰트 로딩 확인 경고 유지). 실제 카메라 하드웨어는 미검증.
+
+## PR 통합 검증
+- 최신 `main`을 merge commit으로 반영하여 기상청 UV 통합과 삼각형 크림색 메시 표시 보존.
+- 병합 후 `npm test` 141/141, `npm run test:e2e` Chrome 28/28, `npm run build` 성공, Astryx doctor fail 0, `git diff --check` 통과.
