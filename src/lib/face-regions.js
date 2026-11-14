@@ -54,7 +54,7 @@ export function getFaceGeometry(landmarks, { width, height }) {
   return {
     regions: REGIONS.map(region => ({ ...region, polygon: polygons[region.id].map(i => landmarks[i]) })),
     outline: faceOutline, exclusions: exclusions.map(ids => ids.map(i => landmarks[i])),
-    toFacePoint, center: toFacePoint(landmarks[1]), quality: { ready: !reason, reason },
+    landmarks, toFacePoint, center: toFacePoint(landmarks[1]), quality: { ready: !reason, reason },
   };
 }
 
@@ -74,4 +74,28 @@ export function getDisplayPoint(point, { videoWidth, videoHeight, stageWidth, st
   const scale = Math.max(stageWidth / videoWidth, stageHeight / videoHeight);
   const x = point.x * videoWidth * scale - (videoWidth * scale - stageWidth) / 2;
   return { x: mirrored ? stageWidth - x : x, y: point.y * videoHeight * scale - (videoHeight * scale - stageHeight) / 2 };
+}
+
+// Overlay only: eyes and lips get no sunscreen, so the mesh leaves them empty.
+// Eye margin covers the lids; tune it on real faces if it looks too wide or narrow.
+const eyeMeshMargin = 1.8;
+const outerLips = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185];
+const grow = (polygon, factor) => {
+  const cx = polygon.reduce((sum, p) => sum + p.x, 0) / polygon.length;
+  const cy = polygon.reduce((sum, p) => sum + p.y, 0) / polygon.length;
+  return polygon.map(p => ({ x: cx + (p.x - cx) * factor, y: cy + (p.y - cy) * factor }));
+};
+
+export function getMeshSegments(landmarks, connections) {
+  const ready = ids => ids.every(i => finitePoint(landmarks[i]));
+  const eyes = exclusions.slice(0, 2).filter(ready).map(ids => grow(ids.map(i => landmarks[i]), eyeMeshMargin));
+  // Shrunk a hair so lines along the lip edge stay as the hole's outline.
+  const lips = ready(outerLips) ? grow(outerLips.map(i => landmarks[i]), .98) : null;
+  return connections.flatMap(({ start, end }) => {
+    const a = landmarks[start], b = landmarks[end];
+    if (!finitePoint(a) || !finitePoint(b)) return [];
+    const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const hidden = eyes.some(eye => [a, middle, b].some(p => contains(eye, p))) || (lips && contains(lips, middle));
+    return hidden ? [] : [[a, b]];
+  });
 }
