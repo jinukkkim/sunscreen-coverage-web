@@ -28,9 +28,10 @@ npm run preview
 ## 스켈레톤 범위
 
 - React/Vite 앱 진입점, 반응형 기본 화면, 카메라 켜기·끄기·권한 오류 처리.
-- 도포 결과·자외선·성분 분석·덧바름 알림은 미연결 상태로 표시합니다.
+- 도포 결과·자외선·덧바름 알림은 미연결 상태로 표시합니다.
+- 내 선크림 등록: 제품 라벨 사진을 읽어 초안을 만들고 사용자가 확인한 뒤 브라우저에 저장합니다. 직접 입력도 가능합니다. 아래 "제품 등록 서버"를 참고하세요.
 - 데모 데이터, 터치 시연, UV 슬라이더, 샘플 성분, 임의 도포율 및 보호 시간 계산을 포함하지 않습니다.
-- 카메라 영상은 브라우저 미리보기에만 사용합니다. 캡처·저장·외부 전송·모델 실행은 하지 않습니다. API 키나 환경 변수 없이 실행됩니다.
+- 얼굴 카메라 영상은 브라우저 미리보기에만 사용합니다. 캡처·저장·외부 전송·모델 실행은 하지 않습니다. 제품 사진만 사용자 동의 후 분석 서버를 거쳐 외부 모델로 전송되며, 서버는 사진을 저장하지 않습니다.
 
 ## 코드 구조와 다음 연결 지점
 
@@ -39,7 +40,25 @@ npm run preview
 | `src/App.jsx` | 기능별 화면과 빈 결과 영역 |
 | `src/components/Camera.jsx` | 사용자 동작에 따른 카메라 상태와 미리보기 |
 | `src/lib/camera.js` | 스트림 수명 관리 및 요청 취소 |
+| `src/lib/product.js` | 제품 프로필 모델·검증·솔루션 파생(순수 함수) |
+| `src/lib/productStorage.js` | 제품 프로필 localStorage 저장·복원 |
+| `src/lib/labelRecognition.js` | 라벨 인식 어댑터와 초안 변환 |
+| `src/lib/image.js` | 전송 전 사진 축소 |
+| `src/components/ProductSetup.jsx`, `ProductSolution.jsx` | 제품 등록 화면과 솔루션 카드 |
+| `server/recognize.js`, `server/index.js` | 라벨 인식 API(모델 호출·응답 검증) |
 | `tests/camera.test.js` | 종료·취소·재요청·재생 실패 시 자원 해제 검증 |
+| `tests/product.test.js`, `tests/recognize.test.js`, `tests/labelRecognition.test.js` | 모델·서버·어댑터 검증(실제 선크림 없이 고정 응답 픽스처로 실행) |
+
+## 제품 등록 서버
+
+제품 사진 분석은 API 키를 숨기기 위해 별도 Node 서버를 거칩니다. 키가 없으면 서버는 503을 돌려주고 화면은 직접 입력으로 안내합니다.
+
+```sh
+GEMINI_API_KEY=... npm run server        # 기본 127.0.0.1:8787
+npm run dev                              # /api/* 를 8787로 프록시
+```
+
+`GEMINI_MODEL`로 모델 이름을 바꿀 수 있습니다. 휴대폰 테스트는 Tailscale로 노출합니다(`tailscale serve --bg 5173`). `*.ts.net` 호스트는 Vite 설정에서 허용돼 있습니다. 전송 데이터 흐름과 보관 정책은 [제품 사진 데이터 흐름](docs/sunguard/05-product-photo-data-flow.md)에 있습니다.
 
 실제 도포 인식은 검증된 모델·결과 계약을 정한 뒤 카메라 입력과 연결합니다. 손 이동만으로 도포 완료를 표시하지 않습니다. 외부 분석을 도입하면 이미지 전송 대상·저장 정책·동의 흐름을 먼저 문서화해야 합니다.
 

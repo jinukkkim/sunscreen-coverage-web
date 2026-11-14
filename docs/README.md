@@ -11,6 +11,9 @@
 3. [SunSense 상세 분석](sunguard/02-sunsense.md)
 4. [기본 카메라 도포 인식의 가능성과 한계](sunguard/03-recognition-feasibility.md)
 5. [출처와 확인 범위](sunguard/04-sources.md)
+6. [제품 사진 데이터 흐름](sunguard/05-product-photo-data-flow.md)
+
+설계 문서는 `superpowers/specs/`에 둔다: [제품 등록·사진 인식·맞춤 솔루션](superpowers/specs/product-profile.md).
 
 ## 문서 관리
 
