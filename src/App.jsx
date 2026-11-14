@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
 import Camera from './components/Camera.jsx';
+import CareDashboard from './components/CareDashboard.jsx';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Grid } from '@astryxdesign/core/Grid';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Divider } from '@astryxdesign/core/Divider';
 import { REGIONS } from './lib/face-regions.js';
 
 const phaseLabels = {
@@ -11,38 +18,50 @@ const statusLabels = { pending: '아직 감지되지 않음', observing: '동작
 export default function App() {
   const [analysis, setAnalysis] = useState({ phase: 'stopped', regions: [], detectedCount: 0 });
   return (
-    <div className="app">
-      <header><a className="brand" href="/">SunGuard</a><span>선크림 도포 동작 안내</span></header>
-      <main>
-        <div className="intro">
-          <h1>얼굴 부위를 확인하고, 빠짐없이 펴 바르세요</h1>
-          <p>얼굴을 먼저 맞춘 뒤 이마·코·양 볼·턱에서 손으로 펴 바르는 동작을 관찰합니다.</p>
-        </div>
-        <div className="workspace">
+    <VStack gap={6} padding={6} maxWidth={1120} style={{ marginInline: 'auto' }}>
+      <HStack as="header" hAlign="between" vAlign="center" wrap="wrap" gap={3}>
+        <Text type="large" weight="bold">SunGuard</Text>
+        <Text type="supporting">매일 이어가는 선케어</Text>
+      </HStack>
+      <Divider />
+      <VStack as="main" gap={6}>
+        <VStack gap={2}>
+          <Heading level={1}>선크림 도포 인식</Heading>
+          <Text>얼굴을 먼저 맞춘 뒤 이마·코·양 볼·턱에서 손으로 펴 바르는 동작을 관찰합니다.</Text>
+        </VStack>
+        <Grid columns={{ minWidth: 300, max: 2 }} gap={4}>
           <Camera onAnalysisChange={setAnalysis} />
-          <section className="card" aria-labelledby="coverage-title">
-            <h2 id="coverage-title">부위별 도포 동작</h2>
-            <p className="badge">{phaseLabels[analysis.phase]}</p>
-            <p role="status">5구역 중 <strong>{analysis.detectedCount}구역</strong>에서 동작 감지</p>
-            <ul className="region-results">
+          <VStack as="section" gap={3} padding={4}>
+            <Heading level={2}>부위별 도포 동작</Heading>
+            <Text type="label">{phaseLabels[analysis.phase]}</Text>
+            <Text role="status">5구역 중 {analysis.detectedCount}구역에서 동작 감지</Text>
+            <VStack as="ul" gap={0} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {REGIONS.map(region => {
                 const status = analysis.regions.find(item => item.id === region.id)?.status || 'pending';
-                return <li key={region.id} className={`region-result ${status}`}><strong>{region.label}</strong><span>{statusLabels[status]}</span></li>;
+                return <VStack as="li" key={region.id} gap={0}>
+                  <HStack paddingBlock={3} gap={3} hAlign="between" wrap="wrap">
+                    <Text type="label">{region.label}</Text>
+                    <Text type="supporting" color={status === 'detected' ? 'accent' : 'secondary'}>{statusLabels[status]}</Text>
+                  </HStack>
+                  <Divider />
+                </VStack>;
               })}
-            </ul>
-            {analysis.detectedCount === 5 && <p role="status">관찰 대상 5구역에서 동작을 감지했습니다.</p>}
-            <p className="muted">관찰 범위는 정면 5구역입니다. 눈가·귀·목 등은 이번 관찰에 포함되지 않습니다.</p>
-            <p className="muted">손의 동작을 확인하는 기능입니다. 선크림이 실제로 발렸는지, 양이 충분한지는 확인하지 못합니다.</p>
-          </section>
-        </div>
-        <div className="supporting">
-          <section className="card"><h2>자외선 정보</h2><p>기상 데이터 연결 준비 중</p></section>
-          <section className="card"><h2>성분 분석</h2><p>제품 성분 분석 연결 준비 중</p></section>
-          <section className="card"><h2>덧바름 알림</h2><p>알림 설정 기능 준비 중</p></section>
-        </div>
-        <p className="notice">제품 종류에 제한 없이 손으로 펴 바르는 동작을 대상으로 합니다. 실제 도포 인식 정확도는 아직 검증되지 않았으며, 도포량과 자외선 차단력을 측정하지 않습니다.</p>
-      </main>
-      <footer>2026 SunGuard contributors</footer>
-    </div>
+            </VStack>
+            {analysis.detectedCount === 5 && <Text role="status">관찰 대상 5구역에서 동작을 감지했습니다.</Text>}
+            <Text type="supporting">관찰 범위는 정면 5구역입니다. 눈가·귀·목 등은 이번 관찰에 포함되지 않습니다.</Text>
+            <Text type="supporting">손의 동작을 확인하는 기능입니다. 선크림이 실제로 발렸는지, 양이 충분한지는 확인하지 못합니다. 아래 도포 기록은 직접 입력하며 동작만으로 자동 완료하지 않습니다.</Text>
+            <Text type="supporting">일반 카메라의 실제 도포 인식 정확도는 아직 검증되지 않았으며, 도포량과 자외선 차단력을 측정하지 않습니다.</Text>
+          </VStack>
+        </Grid>
+        <Divider />
+        <VStack gap={2}>
+          <Heading level={2}>오늘의 선케어 타임라인</Heading>
+          <Text>바른 시각을 기록하고, 다음 재도포 시각과 자외선 예보를 함께 확인하세요.</Text>
+        </VStack>
+        <CareDashboard />
+      </VStack>
+      <Divider />
+      <Text as="p" type="supporting">2026 SunGuard contributors · 시각 기준: 대한민국(Asia/Seoul)</Text>
+    </VStack>
   );
 }

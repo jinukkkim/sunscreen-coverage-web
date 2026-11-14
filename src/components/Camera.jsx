@@ -2,6 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createCameraSession } from '../lib/camera.js';
 import { createVisionSession } from '../lib/vision-session.js';
 import { getDisplayPoint } from '../lib/face-regions.js';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
+import { Section } from '@astryxdesign/core/Section';
 
 const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0 };
 function FaceOverlay({ analysis, video }) {
@@ -45,7 +51,7 @@ function FaceOverlay({ analysis, video }) {
       context.fillStyle = '#ffca5c'; context.fill();
     }
   }, [analysis, size, video]);
-  return <canvas ref={canvas} className="camera-overlay" aria-hidden="true" />;
+  return <canvas ref={canvas} aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
 }
 
 export default function Camera({ onAnalysisChange }) {
@@ -105,31 +111,33 @@ export default function Camera({ onAnalysisChange }) {
   }
 
   return (
-    <section className="card" aria-labelledby="camera-title">
-      <h2 id="camera-title">얼굴 스캔과 동작 관찰</h2>
-      <ol className="scan-steps" aria-label="사용 순서">
-        <li>얼굴 맞추기</li><li>부위 확인</li><li>펴 바르기</li>
-      </ol>
-      <div className="camera-stage">
-        <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" />
-        <FaceOverlay analysis={analysis} video={video} />
-        {status === 'active' && !analysis.geometry && <div className="face-guide" aria-hidden="true" />}
-        {status !== 'active' && <p>{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</p>}
-      </div>
-      <p role="status" className="camera-status">{status === 'active'
-        ? analysis.reason || '카메라 사용 중'
-        : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</p>
-      {error && <p role="alert">{error}</p>}
-      {analysis.phase === 'error' && <p role="alert">인식 기능을 다시 준비해 주세요. 영상 미리보기는 계속 사용할 수 있습니다.</p>}
-      <div className="actions">
-        <button onClick={start} disabled={status !== 'idle'}>카메라 켜기</button>
-        <button className="secondary" onClick={stop} disabled={status === 'idle'}>{status === 'loading' ? '연결 취소' : '카메라 끄기'}</button>
-        {status === 'active' && analysis.phase !== 'error' && <button onClick={() => vision.current?.confirmScan()} disabled={analysis.phase !== 'ready'}>부위 확인 후 시작</button>}
-        {status === 'active' && analysis.phase === 'tracking' && <button className="secondary" onClick={() => vision.current?.reset()}>다시 시작</button>}
-        {status === 'active' && analysis.phase === 'error' && <button onClick={analyze}>분석 다시 시도</button>}
-      </div>
-      <p className="muted">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</p>
-      <p className="muted">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</p>
-    </section>
+    <Section padding={4}>
+      <VStack gap={3}>
+        <Heading level={2}>얼굴 스캔과 동작 관찰</Heading>
+        <HStack as="ol" wrap="wrap" gap={4} aria-label="사용 순서" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <VStack as="li"><Text type="supporting">1. 얼굴 맞추기</Text></VStack>
+          <VStack as="li"><Text type="supporting">2. 부위 확인</Text></VStack>
+          <VStack as="li"><Text type="supporting">3. 펴 바르기</Text></VStack>
+        </HStack>
+        <VStack style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
+          <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+          <FaceOverlay analysis={analysis} video={video} />
+          {status === 'active' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
+          {status !== 'active' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
+        </VStack>
+        <Text role="status">{status === 'active' ? analysis.reason || '카메라 사용 중' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</Text>
+        {error && <Text role="alert">{error}</Text>}
+        {analysis.phase === 'error' && <Text role="alert">인식 기능을 다시 준비해 주세요. 영상 미리보기는 계속 사용할 수 있습니다.</Text>}
+        <HStack wrap="wrap" gap={2}>
+          <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle'} />
+          <Button label={status === 'loading' ? '연결 취소' : '카메라 끄기'} onClick={stop} isDisabled={status === 'idle'} />
+          {status === 'active' && analysis.phase !== 'error' && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
+          {status === 'active' && analysis.phase === 'tracking' && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
+          {status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
+        </HStack>
+        <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
+        <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
+      </VStack>
+    </Section>
   );
 }
