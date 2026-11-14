@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dailyEnd, dayKey, emptyCare, latestRecord, pendingReminder, readCare, recordApplication, STORAGE_KEY, uvAt } from '../lib/reapplication.js';
+import { dailyEnd, dayKey, emptyCare, formatTime, latestRecord, pendingReminder, readCare, recordApplication, STORAGE_KEY, uvAt } from '../lib/reapplication.js';
 import { getForecast, locate } from '../lib/location.js';
 import { deliverReminder, enableDeviceNotifications, notifyDevice } from '../lib/reminders.js';
 
@@ -14,6 +14,8 @@ export function useCare() {
   const [locationEnabled, setLocationEnabled] = useState(false), [permission, setPermission] = useState(globalThis.Notification?.permission || 'unsupported');
   const [deviceEnabled, setDeviceEnabled] = useState(false);
   const state = useRef(care), live = useRef(true), locationRequest = useRef(0), inFlight = useRef(false);
+  const currentForecast = useRef(forecast), lastPosition = useRef(null), lastForecastAttempt = useRef(0);
+  currentForecast.current = forecast;
   const options = useRef({ locationEnabled, deviceEnabled });
   const storageHealthy = useRef(!initial.error);
   options.current = { locationEnabled, deviceEnabled };
@@ -33,23 +35,25 @@ export function useCare() {
     return next;
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (freshLocation = true) => {
     const token = ++locationRequest.current;
-    setForecast(null);
-    setLocationStatus('새 위치 확인 중…');
+    lastForecastAttempt.current = Date.now();
+    setLocationStatus(freshLocation ? '새 위치 확인 중…' : '마지막 확인 위치의 UV 예보 갱신 중…');
     try {
-      const position = await locate();
+      const position = freshLocation ? await locate() : lastPosition.current;
+      if (!position) throw new Error('먼저 현재 위치를 확인해 주세요.');
       if (token !== locationRequest.current || !live.current) return { message: '위치 갱신 취소', uv: null };
+      lastPosition.current = position;
       setLocationStatus('위치 확인 완료 · 자외선 예보 확인 중…');
       try {
         const data = await getForecast(position);
         if (token !== locationRequest.current || !live.current) return { message: '위치 갱신 취소', uv: null };
-        const message = `${data.location.name} 인근 지점 · ${data.location.distanceKm}km · 위치 정확도 약 ${Math.round(position.accuracy)}m`;
-        if (token === locationRequest.current && live.current) { setForecast(data); setLocationStatus(message); }
+        const message = `${data.location.name} 인근 지점 · ${data.location.distanceKm}km · 위치 ${formatTime(position.measuredAt)} 확인 · 정확도 약 ${Math.round(position.accuracy)}m`;
+        if (token === locationRequest.current && live.current) { currentForecast.current = data; setForecast(data); setLocationStatus(message); }
         return { message, uv: uvAt(data, Date.now(), Date.now())?.value ?? null };
       } catch (cause) {
         if (token !== locationRequest.current || !live.current) return { message: '위치 갱신 취소', uv: null };
-        const message = `위치 확인 완료 · UV 예보 없음: ${cause.message}`;
+        const message = `위치 확인 완료 · UV 갱신 실패: ${cause.message} 마지막 유효 예보가 있으면 유지합니다.`;
         if (token === locationRequest.current && live.current) setLocationStatus(message);
         return { message, uv: null };
       }
@@ -89,21 +93,36 @@ export function useCare() {
   }, [update]);
 
   useEffect(() => {
-    if (document.visibilityState !== 'visible' || inFlight.current || !pendingReminder(care, now)) return;
+    if (locationEnabled && document.visibilityState === 'visible' && lastPosition.current && now - lastForecastAttempt.current >= 30 * 60000) {
+      refresh(false).catch(() => {});
+    }
+  }, [locationEnabled, now, refresh]);
+
+  useEffect(() => {
+    if (document.visibilityState !== 'visible' || inFlight.current || !pendingReminder(care, now, forecast)) return;
     inFlight.current = true;
     async function send() {
       if (!live.current || document.visibilityState !== 'visible') return;
+      const recordId = latestRecord(state.current)?.id;
+      let locationResult = null;
+      if (options.current.locationEnabled) {
+        try { locationResult = await refresh(); }
+        catch { locationResult = { message: '위치·예보 갱신 실패 · 마지막 유효 예보 또는 기본 주기로 알림을 보냅니다.', uv: null }; }
+      }
+      if (!live.current || document.visibilityState !== 'visible' || latestRecord(state.current)?.id !== recordId) return;
       // Re-read inside the browser-wide lock so two open tabs cannot claim the same reminder.
       let due = null;
       update(current => {
-        due = pendingReminder(current, Date.now());
+        due = latestRecord(current)?.id === recordId ? pendingReminder(current, Date.now(), currentForecast.current) : null;
         return due ? { ...current, delivered: [...current.delivered, due.id].slice(-200) } : current;
       });
       if (!due || !live.current) return;
       const isCurrent = () => live.current && state.current.enabled && state.current.activeDay === dayKey(Date.now()) && latestRecord(state.current)?.id === due.id;
       if (!isCurrent()) return;
       await deliverReminder({
-        refresh: options.current.locationEnabled ? refresh : null,
+        intervalMinutes: due.minutes,
+        uv: due.uv,
+        refresh: locationResult ? async () => locationResult : null,
         onAlert: value => { if (isCurrent()) setAlert(value); },
         isCurrent,
         notify: body => options.current.deviceEnabled ? notifyDevice(body, `sunguard-${due.id}`) : undefined,
@@ -112,7 +131,7 @@ export function useCare() {
     const work = navigator.locks ? navigator.locks.request('sunguard-reminder', send) : send();
     work.catch(() => { if (live.current) setError('알림 처리에 실패했습니다. 기록과 권한을 확인해 주세요.'); })
       .finally(() => { inFlight.current = false; });
-  }, [care, now, refresh, update]);
+  }, [care, now, forecast, refresh, update]);
 
   function record(at = Date.now()) {
     setError('');
@@ -122,7 +141,7 @@ export function useCare() {
   function toggleLocation(value) {
     setLocationEnabled(value);
     if (value) refresh().catch(() => {});
-    else { locationRequest.current++; setForecast(null); setLocationStatus('위치 갱신 사용 안 함'); }
+    else { locationRequest.current++; lastPosition.current = null; currentForecast.current = null; setForecast(null); setLocationStatus('위치 갱신 사용 안 함'); }
   }
   async function enableNotifications() {
     try { const value = await enableDeviceNotifications(); setPermission(value); setDeviceEnabled(true); }

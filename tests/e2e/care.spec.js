@@ -28,7 +28,7 @@ test('due alert refreshes location, keeps incomplete plans, and does not repeat 
   await page.route('**/api/uv?**', route => route.fulfill({ json: {
     source: '기상청', fetchedAt: fixedTime.toISOString(), publishedAt: fixedTime.toISOString(),
     location: { name: '서울특별시', distanceKm: 0.2 },
-    slots: [{ value: 3, validFrom: fixedTime.toISOString(), validTo: new Date(+fixedTime + 3 * 3600000).toISOString() }],
+    slots: [{ value: 4, validFrom: fixedTime.toISOString(), validTo: new Date(+fixedTime + 3 * 3600000).toISOString() }],
   } }));
   await page.goto('/');
   await page.getByLabel('오늘 이전에 바른 시각 (한국 시간)').fill('07:01');

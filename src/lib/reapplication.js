@@ -41,30 +41,69 @@ export function recordApplication(state, at, now = Date.now(), id = crypto.rando
 
 export function dailyEnd(state, now) { return Date.parse(`${dayKey(now)}T${state.endTime}:00+09:00`); }
 export function latestRecord(state) { return state.records.at(-1) ?? null; }
-export function nextDue(state, now) {
+
+// Product-defined reminder bands. These durations are not measured protection times.
+export function uvPolicy(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 30) {
+    return { uv: null, minutes: 120, label: 'UV 확인 전 · 기본 120분', fallback: true };
+  }
+  if (value < 3) return { uv: value, minutes: null, label: 'UV 0–2 · 알림 대기', fallback: false };
+  const minutes = value < 4 ? 150 : value < 6 ? 120 : value < 8 ? 80 : 60;
+  return { uv: value, minutes, label: `UV ${value} · ${minutes}분 주기`, fallback: false };
+}
+
+export function policyAt(forecast, at, now) { return uvPolicy(uvAt(forecast, at, now)?.value); }
+
+// Re-evaluate when a forecast period starts. A low-UV period pauses reminders;
+// a later high-UV period can resume them without creating an application record.
+function nextPlan(anchor, from, forecast, now, end) {
+  let cursor = Math.max(anchor, from);
+  const slots = uvAt(forecast, cursor, now) ? forecast.slots : [];
+  const boundaries = slots.flatMap(slot => [Date.parse(slot.validFrom), Date.parse(slot.validTo)]).filter(Number.isFinite);
+  // Also include future periods when the current period is a data gap.
+  if (!slots.length && forecast && Number.isFinite(Date.parse(forecast.fetchedAt)) && now - Date.parse(forecast.fetchedAt) <= 3600000 && now >= Date.parse(forecast.fetchedAt) - 60000) {
+    boundaries.push(...(forecast.slots || []).flatMap(slot => [Date.parse(slot.validFrom), Date.parse(slot.validTo)]).filter(Number.isFinite));
+  }
+  while (cursor <= end) {
+    const policy = policyAt(forecast, cursor, now);
+    const boundary = Math.min(end + 1, ...boundaries.filter(time => time > cursor));
+    if (policy.minutes !== null) {
+      const periodStart = Math.max(anchor, ...boundaries.filter(time => time <= cursor));
+      const target = Math.max(anchor + policy.minutes * 60000, periodStart);
+      const at = cursor <= now ? target : Math.max(cursor, target);
+      if (at < boundary && at <= end) return { at, ...policy };
+    }
+    cursor = boundary;
+  }
+  return null;
+}
+
+export function nextDue(state, now, forecast = null) {
   const last = latestRecord(state);
   if (!last || dayKey(last.at) !== dayKey(now)) return null;
-  const due = last.at + INTERVAL_MS;
-  return due <= dailyEnd(state, now) && dayKey(due) === dayKey(now) ? { id: last.id, at: due } : null;
+  const plan = nextPlan(last.at, now, forecast, now, dailyEnd(state, now));
+  return plan && dayKey(plan.at) === dayKey(now) ? { id: last.id, ...plan } : null;
 }
-export function pendingReminder(state, now) {
-  const due = nextDue(state, now);
+export function pendingReminder(state, now, forecast = null) {
+  const due = nextDue(state, now, forecast);
   return state.enabled && state.activeDay === dayKey(now) && now <= dailyEnd(state, now)
     && due && due.at <= now && !state.delivered.includes(due.id) ? due : null;
 }
 
 export function uvAt(forecast, at, now) {
-  if (!forecast || !Number.isFinite(Date.parse(forecast.fetchedAt)) || now - Date.parse(forecast.fetchedAt) > 60 * 60000) return null;
-  return forecast.slots?.find(slot => at >= Date.parse(slot.validFrom) && at < Date.parse(slot.validTo)) ?? null;
+  const fetched = Date.parse(forecast?.fetchedAt);
+  if (!Number.isFinite(fetched) || now - fetched > 60 * 60000 || fetched - now > 60000) return null;
+  return forecast.slots?.find(slot => typeof slot.value === 'number' && Number.isFinite(slot.value) && slot.value >= 0 && slot.value <= 30 && at >= Date.parse(slot.validFrom) && at < Date.parse(slot.validTo)) ?? null;
 }
 
-export function timeline(state, now) {
+export function timeline(state, now, forecast = null) {
   const rows = state.records.filter(record => dayKey(record.at) === dayKey(now)).map((record, i) => ({ ...record, kind: 'record', label: i === 0 ? '첫 도포 기록' : '재도포 기록' }));
-  const due = nextDue(state, now);
-  if (due) {
-    for (let at = due.at; at <= dailyEnd(state, now); at += INTERVAL_MS) {
-      rows.push({ id: `plan-${at}`, at, kind: 'plan', label: at === due.at ? '다음 재도포' : '이전 예정대로 발랐을 때', overdue: at === due.at && at <= now });
-    }
+  let plan = nextDue(state, now, forecast);
+  let first = true;
+  while (plan) {
+    rows.push({ ...plan, id: `plan-${plan.at}`, kind: 'plan', label: first ? '다음 재도포' : '이전 예정대로 발랐을 때', overdue: first && plan.at <= now });
+    first = false;
+    plan = nextPlan(plan.at, plan.at, forecast, now, dailyEnd(state, now));
   }
   return rows.sort((a, b) => a.at - b.at);
 }

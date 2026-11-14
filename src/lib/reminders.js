@@ -1,5 +1,5 @@
-export async function deliverReminder({ refresh, notify, onAlert, isCurrent = () => true }) {
-  let detail = '직전 도포 후 2시간이 지났습니다. 야외활동 중이라면 다시 발라 주세요.';
+export async function deliverReminder({ refresh, notify, onAlert, isCurrent = () => true, intervalMinutes = 120, uv = null }) {
+  let detail = `${uv === null ? '기본' : `UV ${uv} 기준`} ${intervalMinutes}분 알림 시각입니다. 야외활동 중이라면 다시 발라 주세요.`;
   onAlert({ detail, location: refresh ? '현재 위치 확인 중…' : '위치 갱신 사용 안 함' });
   let location = '위치 갱신 사용 안 함';
   if (refresh) {

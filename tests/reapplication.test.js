@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, readCare, recordApplication, timeline, uvAt } from '../src/lib/reapplication.js';
+import { dayKey, emptyCare, INTERVAL_MS, nextDue, parseInput, pendingReminder, policyAt, readCare, recordApplication, timeline, uvAt, uvPolicy } from '../src/lib/reapplication.js';
 import { deliverReminder } from '../src/lib/reminders.js';
 import { locate, getForecast } from '../src/lib/location.js';
 
@@ -56,12 +56,67 @@ test('storage validates, prunes old records and preserves disabled state', () =>
   assert.equal(state.records.length, 1);
   assert.equal(state.endTime, '20:00');
 });
-test('UV slot bounds and stale forecasts do not invent measurements or alter the interval', () => {
+test('UV slot bounds and stale forecasts do not invent measurements', () => {
   const forecast = { fetchedAt: new Date(at('09:00')).toISOString(), slots: [{ value: 0, validFrom: new Date(at('09:00')).toISOString(), validTo: new Date(at('12:00')).toISOString() }] };
   assert.equal(uvAt(forecast, at('09:30'), at('09:30')).value, 0);
   assert.equal(uvAt(forecast, at('12:00'), at('09:30')), null);
   assert.equal(uvAt(forecast, at('10:30'), at('10:30')), null);
   assert.equal(INTERVAL_MS, 7200000);
+});
+
+function forecastOf(value, fetchedAt = at('09:00'), slots) {
+  return { fetchedAt: new Date(fetchedAt).toISOString(), slots: slots || [{ value, validFrom: new Date(at('06:00')).toISOString(), validTo: new Date(at('23:59')).toISOString() }] };
+}
+test('the requested UV bands map to waiting, 150, 120, 80 and 60 minutes', () => {
+  for (const [uv, minutes] of [[0, null], [1, null], [2, null], [3, 150], [4, 120], [5, 120], [6, 80], [7, 80], [8, 60], [11, 60], [30, 60]]) {
+    assert.equal(uvPolicy(uv).minutes, minutes, `UV ${uv}`);
+    const due = nextDue(started(), at('09:00'), forecastOf(uv));
+    assert.equal(due?.at ?? null, minutes === null ? null : at('08:00') + minutes * 60000, `due at UV ${uv}`);
+  }
+});
+test('decimal UV values use continuous, gap-free band boundaries', () => {
+  assert.equal(uvPolicy(2.9).minutes, null);
+  assert.equal(uvPolicy(3.9).minutes, 150);
+  assert.equal(uvPolicy(5.9).minutes, 120);
+  assert.equal(uvPolicy(7.9).minutes, 80);
+});
+test('missing, invalid or stale UV falls back to 120 minutes, never a low-UV pause', () => {
+  for (const value of [null, undefined, NaN, Infinity, -1, 31, '0', '8']) assert.equal(uvPolicy(value).minutes, 120);
+  assert.equal(policyAt(forecastOf(0, at('07:00')), at('09:00'), at('09:00')).minutes, 120);
+  assert.equal(nextDue(started(), at('09:00'), forecastOf(8, at('07:00'))).at, at('10:00'));
+});
+test('UV 3 triggers after 150 minutes while UV 6 and UV 8 trigger earlier', () => {
+  const state = enabled();
+  assert.equal(pendingReminder(state, at('10:29'), forecastOf(3, at('10:29'))), null);
+  assert.equal(pendingReminder(state, at('10:30'), forecastOf(3, at('10:30'))).minutes, 150);
+  assert.equal(pendingReminder(state, at('09:19'), forecastOf(6, at('09:19'))), null);
+  assert.equal(pendingReminder(state, at('09:20'), forecastOf(6, at('09:20'))).minutes, 80);
+  assert.equal(pendingReminder(state, at('09:00'), forecastOf(8)).minutes, 60);
+});
+test('current low UV pauses alarms but the timeline resumes on a higher forecast period', () => {
+  const slots = [[0, '09:00', '12:00'], [6, '12:00', '15:00'], [2, '15:00', '23:59']].map(([value, start, end]) => ({ value, validFrom: new Date(at(start)).toISOString(), validTo: new Date(at(end)).toISOString() }));
+  const forecast = forecastOf(null, at('09:00'), slots);
+  assert.equal(pendingReminder(enabled(), at('09:00'), forecast), null);
+  assert.equal(nextDue(enabled(), at('09:00'), forecast).at, at('12:00'));
+  assert.deepEqual(timeline(enabled(), at('09:00'), forecast).filter(row => row.kind === 'plan').map(row => row.at), [at('12:00'), at('13:20'), at('14:40')]);
+  assert.equal(nextDue(enabled(), at('12:30'), { ...forecast, fetchedAt: new Date(at('12:30')).toISOString() }).at, at('12:00'));
+});
+test('a future UV increase recalculates the next plan at the forecast boundary', () => {
+  const slots = [[3, '09:00', '10:00'], [8, '10:00', '12:00']].map(([value, start, end]) => ({ value, validFrom: new Date(at(start)).toISOString(), validTo: new Date(at(end)).toISOString() }));
+  const forecast = forecastOf(null, at('09:00'), slots);
+  assert.equal(nextDue(started(), at('09:00'), forecast).at, at('10:00'));
+  assert.equal(nextDue(started(), at('09:00'), forecast).minutes, 60);
+});
+test('a new application resets the UV-driven interval without creating extra records', () => {
+  const state = recordApplication(started(), at('09:30'), at('09:30'), 'second');
+  assert.equal(nextDue(state, at('09:30'), forecastOf(7)).at, at('10:50'));
+  assert.equal(state.records.length, 2);
+});
+test('notification copy uses the applied UV interval', async () => {
+  let message;
+  await deliverReminder({ intervalMinutes: 80, uv: 7, onAlert() {}, notify: body => { message = body; } });
+  assert.match(message, /UV 7 기준 80분/);
+  assert.equal(message.includes('2시간'), false);
 });
 test('a location failure cannot suppress the due reminder', async () => {
   const alerts = [], notifications = [];
