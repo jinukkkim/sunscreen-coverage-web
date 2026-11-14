@@ -37,6 +37,10 @@ for (const [uv, time, label] of [[0, '알림 대기', '알림 대기'], [2, '알
       await expect(page.getByText(/· 다음 재도포/)).toHaveCount(0);
     } else {
       await expect(page.getByText(`${time} · 다음 재도포`, { exact: true })).toBeVisible();
+      const upcoming = page.getByRole('region', { name: '앞으로 바를 시각' });
+      await expect(upcoming.getByText('08:00 · 첫 도포 기록', { exact: true })).toHaveCount(0);
+      await expect(upcoming.getByText(`${time} · 다음 재도포`, { exact: true })).toBeVisible();
+      if (uv === 7) await upcoming.screenshot({ path: '.pr-review/dayline-desktop.png' });
     }
   });
 }
@@ -51,6 +55,7 @@ test('a new UV value immediately recalculates the timer and alert text', async (
   uv = 7;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
   await expect(page.getByRole('heading', { name: '09:20', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:20 · 다음 재도포', { exact: true })).toBeVisible();
   uv = 2;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
   await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();

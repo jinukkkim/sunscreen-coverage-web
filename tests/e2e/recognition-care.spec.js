@@ -9,7 +9,7 @@ test('recognition stays above care and a camera error does not lose application 
   await page.goto('/');
   const recognition = await page.getByRole('heading', { name: '얼굴 스캔과 동작 관찰', exact: true }).boundingBox();
   const results = await page.getByRole('heading', { name: '부위별 도포 동작', exact: true }).boundingBox();
-  const care = await page.getByRole('heading', { name: '오늘의 선케어 타임라인', exact: true }).boundingBox();
+  const care = await page.getByRole('heading', { name: '다음 재도포 일정', exact: true }).boundingBox();
   expect(recognition.y).toBeLessThan(care.y);
   expect(results.y).toBeLessThan(care.y);
   await expect(page.getByText('아직 감지되지 않음', { exact: true })).toHaveCount(5);

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import UpcomingTimeline from './UpcomingTimeline.jsx';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -35,6 +36,7 @@ export default function CareDashboard({ model }) {
         <Card><VStack gap={2}><Text type="supporting">다음 재도포 시각</Text><Heading level={2}>{policy.minutes === null ? '알림 대기' : due ? formatTime(due.at) : last ? '오늘 일정 종료' : '기록 후 안내'}</Heading><Text type="supporting">{policy.minutes === null ? due ? `UV 상승 예보 · ${formatTime(due.at)} 재개 예정` : 'UV 0–2 · 선택 도포' : due ? due.at <= now ? '예정 시각 지남 · 아직 재도포 기록 없음' : `약 ${Math.ceil((due.at - now) / 60000)}분 뒤 · ${due.minutes}분 주기 적용` : '오늘 종료 시각 안의 예정이 없습니다.'}</Text></VStack></Card>
         <Card><VStack gap={2}><Text type="supporting">현재 구간 UV 예보</Text><Heading level={2}>{currentUv ? currentUv.value : '확인 전'}</Heading><Text type="label">{policy.label}</Text><Text type="supporting">{currentUv ? `${formatTime(Date.parse(currentUv.validFrom))}–${formatTime(Date.parse(currentUv.validTo))} 구간 · 실측값 아님` : '위치와 기상청 데이터 연결 후 자동 적용'}</Text></VStack></Card>
       </Grid>
+      <UpcomingTimeline care={care} now={now} forecast={forecast} />
       <Grid columns={{ minWidth: 300, max: 2 }} gap={4} align="start">
         <Section padding={4}>
           <VStack gap={4}>
@@ -84,12 +86,11 @@ export default function CareDashboard({ model }) {
       </Section>
       <Section padding={4}>
         <VStack gap={4}>
-          <Heading level={2}>{formatDate(now)} 하루 타임라인</Heading>
-          <Text type="supporting">완료는 직접 입력하거나 동작 관찰을 마친 시각의 기록입니다. 이후 예정은 앞선 시각에 실제로 덧발랐을 때의 계획이며, 놓친 시각을 자동 완료하지 않습니다.</Text>
-          {policy.minutes === null && <Text>현재 UV가 낮아 알림을 대기합니다. 이후 UV 상승 예보가 있으면 해당 시점부터 일정을 표시합니다.</Text>}
-          {rows.length === 0 ? <Text>오늘의 첫 도포를 기록하면 타임라인이 시작됩니다.</Text> :
+          <Heading level={2}>{formatDate(now)} 도포 기록</Heading>
+          <Text type="supporting">직접 입력하거나 동작 관찰을 마친 시각입니다. 앞으로의 일정은 위의 재도포 안내에서 확인하세요.</Text>
+          {rows.filter(row => row.kind === 'record').length === 0 ? <Text>오늘의 도포 기록이 없습니다.</Text> :
             <VStack as="ol" gap={0} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {rows.map(row => {
+              {rows.filter(row => row.kind === 'record').map(row => {
                 const uv = row.kind === 'plan' ? row.uv : uvAt(forecast, row.at, now)?.value;
                 return <VStack as="li" key={row.id} gap={0}>
                   <HStack paddingBlock={3} gap={3} hAlign="between" wrap="wrap" vAlign="center">

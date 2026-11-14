@@ -27,12 +27,19 @@ function polygonBounds(points) {
   return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
 }
 
-function drawRegionFill(context, points, progress) {
+function drawRegionFill(context, points, progress, exclusions, size) {
   const visual = getCoverageVisual(progress);
   const bounds = polygonBounds(points), height = bounds.bottom - bounds.top;
   tracePolygon(context, points);
   context.save();
   context.clip();
+  context.beginPath();
+  context.rect(0, 0, size.width, size.height);
+  exclusions.forEach(hole => {
+    hole.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+    context.closePath();
+  });
+  context.clip('evenodd');
   context.fillStyle = 'rgba(34, 47, 40, 0.26)';
   context.fillRect(bounds.left, bounds.top, bounds.right - bounds.left, height);
   if (visual.fillFraction > 0) {
@@ -100,7 +107,8 @@ function FaceOverlay({ analysis, video }) {
     const displayRegions = analysis.geometry.regions.map((region, index) => ({
       region, index, points: region.polygon.map(display), progress: progressById.get(region.id) ?? 0,
     }));
-    displayRegions.forEach(({ points, progress }) => drawRegionFill(context, points, progress));
+    const exclusions = analysis.geometry.exclusions.map(hole => hole.map(display));
+    displayRegions.forEach(({ points, progress }) => drawRegionFill(context, points, progress, exclusions, size));
     if (connections) {
       context.save();
       context.beginPath();
@@ -154,9 +162,12 @@ export default function Camera({ onAnalysisChange }) {
     setStatus('idle'); setError(''); setAnalysis(emptyAnalysis);
   }
   function analyze() {
+    // A completed session holds the final frame with its result until restarted.
+    void video.current?.play().catch(() => {});
     vision.current ??= createVisionSession({
       video: video.current, onUpdate: update => {
         if (!alive.current) return;
+        if (update.phase === 'completed') video.current?.pause();
         setAnalysis(update);
         onChange.current?.({ phase: update.phase, regions: update.regions, detectedCount: update.detectedCount, progress: update.progress, sessionId: update.sessionId, completedAt: update.completedAt });
       },
@@ -215,7 +226,7 @@ export default function Camera({ onAnalysisChange }) {
           {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
         <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
-        <Text type="supporting">어두운 영역에서 크림색으로 차오르는 정도는 동작 진행률입니다. 얼굴 위 숫자 1–5는 아래 부위 목록과 연결되며, 실제 피부에 남은 선크림 양을 측정하지 않습니다.</Text>
+        <Text type="supporting">어두운 영역에서 크림색으로 차오르는 정도는 구역별 동작 진행률입니다. 숫자 1–5는 아래 부위 목록과 연결되며 실제 도포량을 측정하지 않습니다. 완료 화면은 고정되고 새 도포 시작을 누르면 다시 관찰합니다.</Text>
         <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>
         <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
       </VStack>
