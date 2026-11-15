@@ -2,7 +2,7 @@ import React from 'react';
 import CareDashboard from './components/CareDashboard.jsx';
 import ProductSetup from './components/ProductSetup.jsx';
 import FaceDoseGuide from './components/FaceDoseGuide.jsx';
-import { HomeHeader, HomeHero, HomeMethod, HomeFooter } from './components/HomeLayout.jsx';
+import { HomeHeader, HomeMethod, HomeFooter } from './components/HomeLayout.jsx';
 import { useCare } from './hooks/useCare.js';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
@@ -16,7 +16,6 @@ export default function App() {
       <a className="skip-link" href="#workspace">가이드로 건너뛰기</a>
       <HomeHeader />
       <VStack as="main" className="page-frame" gap={0} width="100%">
-        <HomeHero />
         <HStack as="nav" className="home-steps" aria-label="선케어 순서" gap={6} wrap="wrap">
           <a href="#workspace">01 사용량·도포 동작</a>
           <a href="#care">02 재도포 일정</a>

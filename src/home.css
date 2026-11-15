@@ -98,6 +98,8 @@ body{margin:0}
 .sunguard-home .br{right:0;bottom:0;border-width:0 calc(var(--spacing-1) * 0.25) calc(var(--spacing-1) * 0.25) 0}
 .sunguard-home .stage-meta{position:absolute;left:calc(var(--spacing-1) * 3.75);right:calc(var(--spacing-1) * 3.75);top:calc(var(--spacing-1) * 3);display:flex;justify-content:space-between;font-size:var(--font-size-base);letter-spacing:calc(var(--spacing-1) * 0.25);color:var(--color-guide-676767);pointer-events:none}
 .sunguard-home .stage-meta>span{background:var(--color-guide-ffffffd9);padding:calc(var(--spacing-1) * 0.75) calc(var(--spacing-1) * 1.5);display:flex;align-items:center;gap:calc(var(--spacing-1) * 1.5)}
+.sunguard-home .stage-meta{gap:var(--spacing-2);align-items:flex-start}
+.sunguard-home #stage-resolution{flex-shrink:0;font-size:var(--font-size-sm);letter-spacing:normal;white-space:nowrap}
 .sunguard-home .stage-meta i{color:var(--orange);width:calc(var(--spacing-1) * 1);height:calc(var(--spacing-1) * 1)}
 .sunguard-home .stage-loading{position:absolute;inset:0;background:var(--color-guide-ffffffdf);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--spacing-1) * 4);font-size:var(--font-size-base)}
 .sunguard-home .spinner{width:calc(var(--spacing-1) * 6.75);height:calc(var(--spacing-1) * 6.75);border:calc(var(--spacing-1) * 0.5) solid var(--color-guide-ffe0d2);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
@@ -121,7 +123,7 @@ body{margin:0}
 .sunguard-home .area-card{padding:calc(var(--spacing-1) * 6.25)}
 .sunguard-home .face-values{display:flex;justify-content:space-between;align-items:center;margin:calc(var(--spacing-1) * 6.25) 0}
 .sunguard-home .face-values>div:first-child>span:first-child{display:block;font-size:var(--font-size-2xs);color:var(--color-guide-777)}
-.sunguard-home .face-values strong{font-size:var(--font-size-base);line-height:1.3;letter-spacing:calc(var(--spacing-1) * -0.5);font-variant-numeric:tabular-nums}
+.sunguard-home .face-values strong{font-size:var(--font-size-5xl);line-height:1.3;letter-spacing:calc(var(--spacing-1) * -0.5);font-variant-numeric:tabular-nums}
 .sunguard-home .face-values>div:first-child>span:last-child{margin-left:calc(var(--spacing-1) * 1.75);font-size:var(--font-size-sm);color:var(--color-guide-777)}
 .sunguard-home .dimensions{display:flex;flex-direction:column;gap:calc(var(--spacing-1) * 2);font-size:var(--font-size-2xs);color:var(--color-guide-777)}
 .sunguard-home .dimensions b{color:var(--color-guide-262626);margin-left:calc(var(--spacing-1) * 2)}
@@ -133,7 +135,7 @@ body{margin:0}
 .sunguard-home .dose-card .eyebrow{color:var(--color-guide-ffffffbd);font-size:var(--font-size-base)}
 .sunguard-home .dose-card h3{font-size:var(--font-size-lg);margin-top:calc(var(--spacing-1) * 4)}
 .sunguard-home .dose-number{display:flex;align-items:baseline;gap:calc(var(--spacing-1) * 2);margin:calc(var(--spacing-1) * 3) 0}
-.sunguard-home .dose-number strong{font-size:var(--font-size-base);line-height:1.15;letter-spacing:calc(var(--spacing-1) * -0.75);font-variant-numeric:tabular-nums}
+.sunguard-home .dose-number strong{font-size:var(--font-size-5xl);line-height:1.15;letter-spacing:calc(var(--spacing-1) * -0.75);font-variant-numeric:tabular-nums}
 .sunguard-home .dose-number>span{font-size:var(--font-size-3xl)}
 .sunguard-home .dose-equation{font-size:var(--font-size-2xs);border-block:calc(var(--spacing-1) * 0.25) dashed var(--color-guide-ffffff70);padding:calc(var(--spacing-1) * 3) 0;margin:calc(var(--spacing-1) * 3.75) 0}
 .sunguard-home .dose-card>p{font-size:var(--font-size-2xs);color:var(--color-guide-ffffffdf);line-height:1.8}
@@ -146,7 +148,7 @@ body{margin:0}
 .sunguard-home .finger-graphic{width:100%;max-width:calc(var(--spacing-1) * 97.5)}
 .sunguard-home .finger-graphic svg{width:100%;height:auto}
 .sunguard-home .finger-reading{display:flex;align-items:baseline;gap:calc(var(--spacing-1) * 2.5);margin:calc(var(--spacing-1) * 1.25) 0 calc(var(--spacing-1) * 2)}
-.sunguard-home .finger-reading>strong{font-size:var(--font-size-base);letter-spacing:calc(var(--spacing-1) * -0.375);line-height:1.3}
+.sunguard-home .finger-reading>strong{font-size:var(--font-size-5xl);letter-spacing:calc(var(--spacing-1) * -0.375);line-height:1.3}
 .sunguard-home .finger-reading>span{font-size:var(--font-size-2xs);color:var(--color-guide-777)}
 .sunguard-home .finger-visual>.small-label{font-size:var(--font-size-4xs);letter-spacing:0}
 .sunguard-home .finger-settings{padding:calc(var(--spacing-1) * 7.5) calc(var(--spacing-1) * 6)}
@@ -325,6 +327,8 @@ body{margin:0}
 .sunguard-home .session-feedback{display:flex;flex-direction:column;gap:var(--spacing-4);border:thin solid var(--color-border);border-radius:var(--radius-inner)}
 .sunguard-home .live-dose-summary{background:var(--color-guide-fff7f3);border-bottom:thin solid var(--color-border)}
 .sunguard-home .live-dose-summary a{font-size:var(--font-size-sm);color:var(--color-text-accent);text-decoration:underline}
+.sunguard-home .live-dose-summary #live-dose-value,.sunguard-home .motion-total-value{font-size:var(--font-size-4xl);line-height:1.2;font-variant-numeric:tabular-nums}
+.sunguard-home .section-heading h1{font-size:var(--font-size-3xl);line-height:1.3;word-break:keep-all}
 .sunguard-home .camera-stage video{object-fit:cover}
 .sunguard-home .capture-panel .astryx-button{font-size:var(--font-size-sm)}
 .sunguard-home .input-tabs .astryx-button{background:transparent;border-radius:var(--radius-none)}

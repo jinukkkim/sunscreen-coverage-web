@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createVisionSession, loadVisionModels } from '../src/lib/vision-session.js';
+import { AUTO_START_MS, createVisionSession, loadVisionModels } from '../src/lib/vision-session.js';
 import { face, hand, regionHand } from './helpers/landmarks.js';
 
 function fixture(options = {}) {
@@ -36,6 +36,52 @@ async function ready(f) {
   for (let t = 0; t <= 1000; t += 100) f.tick(t);
   assert.equal(f.last.phase, 'ready');
 }
+
+test('two continuous seconds of stable face detection start motion automatically once', async () => {
+  const f = fixture(); await f.session.start();
+  for (let t = 0; t < AUTO_START_MS; t += 100) f.tick(t);
+  assert.equal(f.last.phase, 'ready');
+  assert.equal(f.last.sessionId, null);
+  assert.equal(f.last.progress, 0);
+  f.tick(AUTO_START_MS);
+  assert.equal(f.last.phase, 'tracking');
+  assert.ok(f.last.sessionId);
+  assert.equal(f.last.completedAt, null);
+  assert.equal(f.updates.filter(update => update.phase === 'tracking').length, 1);
+  assert.ok(f.updates.some(update => update.phase === 'ready'));
+  const id = f.last.sessionId;
+  f.tick(AUTO_START_MS + 100);
+  assert.equal(f.last.sessionId, id);
+  f.session.stop();
+});
+
+test('lost faces, multiple faces, hidden tabs and motion reset the automatic countdown', async () => {
+  for (const invalidate of [
+    f => { f.input.faces = []; },
+    f => { f.input.faces = [face(), face()]; },
+    f => { f.input.visible = false; },
+    f => { f.input.faces = [face().map(p => ({ ...p, x: p.x + .03 }))]; },
+  ]) {
+    const f = fixture(); await f.session.start();
+    for (let t = 0; t <= 1900; t += 100) f.tick(t);
+    invalidate(f); f.tick(2000);
+    assert.equal(f.last.sessionId, null);
+    f.input.faces = [face()]; f.input.visible = true;
+    for (let t = 2100; t < 4100; t += 100) f.tick(t);
+    assert.equal(f.last.sessionId, null);
+    f.tick(4100);
+    assert.equal(f.last.phase, 'tracking');
+    f.session.stop();
+  }
+});
+
+test('stopping during the countdown prevents automatic start and completion', async () => {
+  const f = fixture(); await ready(f);
+  f.session.stop();
+  assert.equal(f.callbacks.size, 0);
+  assert.equal(f.last.phase, 'stopped');
+  assert.equal(f.updates.some(update => update.phase === 'tracking' || update.phase === 'completed'), false);
+});
 
 test('requires stable face scan and explicit confirmation before accumulating motion', async () => {
   const f = fixture();
