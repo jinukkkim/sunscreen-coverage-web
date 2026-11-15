@@ -1,6 +1,6 @@
 # 얼굴 기반 선크림 양 가이드
 
-사용자가 승인한 얼굴 촬영→부분 면적·사용량 추정→손가락 길이 안내 흐름을 HTML/CSS/JavaScript로 별도 페이지에 구현하고, 현재 SunGuard React 앱에서 진입할 수 있게 한다. 기본 도포 동작·UV·기록 흐름은 유지한다.
+사용자가 승인한 얼굴 촬영→부분 면적·사용량 추정→손가락 길이 안내 흐름을 HTML/CSS/JavaScript로 별도 페이지에 구현하고, 현재 SUNFIT React 앱에서 진입할 수 있게 한다. 기본 도포 동작·UV·기록 흐름은 유지한다.
 
 ## 범위와 선택
 - 메인 제품 앱은 React/Vite/Astryx를 유지한다. 가이드 화면은 `/face-dose.html`의 별도 HTML/CSS/JavaScript 페이지로 만든다.

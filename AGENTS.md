@@ -2,10 +2,10 @@
 
 ## Team project
 
-- SunGuard is a shared project for the 2026 University of Seoul hackathon.
+- SUNFIT is a shared project for the 2026 University of Seoul hackathon.
 - Preserve each team member's actual authorship. Do not attribute the whole project to one account owner.
 - Never add AI attribution to commits or PRs, or add an AI tool as a collaborator.
-- The project uses the MIT license with copyright attributed to SunGuard contributors.
+- The project uses the MIT license with copyright attributed to SUNFIT contributors.
 
 ## Git workflow
 
@@ -38,7 +38,7 @@
 - UV display, reminders and the timeline share the KMA LivingWthrIdxServiceV5 forecast via KMA_SERVICE_KEY. Do not restore the removed Safemap/VWorld UV path. Label the current three-hour forecast period and publication time; do not call it a live measurement. Location consent and forecast expiry apply to every display of the shared value.
 - Shared research is in `docs/sunguard/`, indexed by `docs/README.md`, and is intended for GitHub.
 - Design documents go in `docs/superpowers/specs/`; implementation plans go in `docs/superpowers/plans/`.
-- Keep pre-SunGuard materials in the ignored `archive/` directory. Never force-add that directory.
+- Keep materials from prior project ideas in the ignored `archive/` directory. Never force-add that directory.
 - Do not commit credentials, private participant photos/videos, or raw participant datasets. Document image transmission before implementing it.
 
 <!-- ASTRYX:START -->

@@ -4,7 +4,7 @@
 
 ## 비교
 
-| 서비스 | 제공·안내 기능 | SunGuard와의 관계 | 상태·한계 |
+| 서비스 | 제공·안내 기능 | SUNFIT와의 관계 | 상태·한계 |
 |---|---|---|---|
 | [SunSense](https://www.sunsense.app/) | 일반 카메라의 유분막 분석, 히트맵, 붉음 분석, UV·알림, 로컬 AI를 주장 | 전체 콘셉트가 가장 유사 | 출시 예정. 다운로드·정책 연결 미완성. 검증 성능 미확인 |
 | [Pavise UV Camera](https://pavise.com/products/uv-camera) | 별도 UV 카메라와 iPhone 앱으로 도포 흔적 관찰 | 미도포 부위 확인이라는 문제 공유 | 추가 하드웨어 필요. 앱 무료 안내. 판매 가격은 확정 기록하지 않음 |
@@ -24,7 +24,7 @@ Pavise의 카메라 원리·호환성은 [공식 FAQ](https://pavise.com/pages/f
 
 ## 사용자 불편 신호
 
-[화해 Google Play](https://play.google.com/store/apps/details?hl=ko&id=kr.co.company.hwahae)의 개별 리뷰에서 2026-10-24에는 회원가입 없이 성분을 보기 어렵다는 불편, 2026-09-06에는 해외 제품의 사진 검색 요구가 확인됐다. 일부 사용자의 의견이며 전체 시장의 비율이나 SunGuard 수요를 뜻하지 않는다.
+[화해 Google Play](https://play.google.com/store/apps/details?hl=ko&id=kr.co.company.hwahae)의 개별 리뷰에서 2026-10-24에는 회원가입 없이 성분을 보기 어렵다는 불편, 2026-09-06에는 해외 제품의 사진 검색 요구가 확인됐다. 일부 사용자의 의견이며 전체 시장의 비율이나 SUNFIT 수요를 뜻하지 않는다.
 
 ## 경쟁 판단
 

@@ -27,8 +27,8 @@ export async function notifyDevice(body, tag) {
   if (!globalThis.Notification || Notification.permission !== 'granted') return;
   if ('serviceWorker' in navigator) {
     const registration = await navigator.serviceWorker.getRegistration('/');
-    if (registration?.active) return registration.showNotification('SunGuard 재도포 알림', { body, tag });
+    if (registration?.active) return registration.showNotification('SUNFIT 재도포 알림', { body, tag });
   }
   // Desktop fallback. Mobile constructor failures are reported to the in-page alert.
-  new Notification('SunGuard 재도포 알림', { body, tag });
+  new Notification('SUNFIT 재도포 알림', { body, tag });
 }

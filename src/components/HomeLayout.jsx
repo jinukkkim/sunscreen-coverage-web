@@ -4,9 +4,8 @@ import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 export function HomeHeader() {
   return <VStack as="header" className="guide-layout site-header">
-    <a className="brand" href="#" aria-label="SunGuard 처음으로">
-      <Text as="span" type="inherit" className="sun-mark" aria-hidden="true">✳</Text> sun<Text as="span" type="inherit">guard</Text>
-      <Text as="sup" type="inherit">LAB</Text>
+    <a className="brand" href="#" aria-label="SUNFIT 처음으로">
+      <Text as="span" type="inherit" className="sun-mark" aria-hidden="true">✳</Text> SUNFIT
     </a>
     <VStack as="nav" aria-label="주 메뉴" className="guide-layout">
       <a href="#workspace" className="active">사용량·도포 동작</a>
@@ -93,9 +92,9 @@ export function HomeMethod() {
 export function HomeFooter() {
   return <VStack as="footer" className="guide-layout site-footer">
     <a className="brand" href="#">
-      <Text as="span" type="inherit" className="sun-mark" aria-hidden="true">✳</Text> sun<Text as="span" type="inherit">guard</Text>
+      <Text as="span" type="inherit" className="sun-mark" aria-hidden="true">✳</Text> SUNFIT
     </a>
     <Text as="span" type="inherit">매일의 햇살을, 더 안심하고.</Text>
-    <Text as="small" type="inherit">2026 SunGuard contributors · 실험용 가이드</Text>
+    <Text as="small" type="inherit">2026 SUNFIT contributors · 실험용 가이드</Text>
   </VStack>;
 }

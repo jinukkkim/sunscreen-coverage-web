@@ -14,4 +14,4 @@ if (process.argv.includes('--production')) {
   app.use(vite.middlewares);
 }
 const port = Number(process.env.PORT) || 5173;
-httpServer.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`SunGuard: http://localhost:${port}`));
+httpServer.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`SUNFIT: http://localhost:${port}`));

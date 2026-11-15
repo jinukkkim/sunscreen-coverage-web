@@ -58,7 +58,7 @@ test('local vision models run on a synthetic stream and camera stop releases it'
   expect(errors).toEqual([]);
 });
 
-test('the face-dose guide runs inside the main SunGuard screen', async ({ page }) => {
+test('the face-dose guide runs inside the main SUNFIT screen', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('h1')).toContainText('사용량 확인과 도포 동작 관찰');
   await expect(page.locator('#workspace').getByRole('button', { name: '카메라 켜기', exact: true })).toBeVisible();
