@@ -50,8 +50,9 @@ export function useCare() {
         const data = await getForecast(position);
         if (token !== locationRequest.current || !live.current) return { message: '위치 갱신 취소', uv: null };
         const message = `${data.location.name} 인근 지점 · ${data.location.distanceKm}km · 위치 ${formatTime(position.measuredAt)} 확인 · 정확도 약 ${Math.round(position.accuracy)}m`;
-        if (token === locationRequest.current && live.current) { currentForecast.current = data; setForecast(data); setLocationStatus(message); }
-        return { message, uv: uvAt(data, Date.now(), Date.now())?.value ?? null };
+        const refreshedAt = Date.now();
+        if (token === locationRequest.current && live.current) { currentForecast.current = data; setForecast(data); setNow(refreshedAt); setLocationStatus(message); }
+        return { message, uv: uvAt(data, refreshedAt, refreshedAt)?.value ?? null };
       } catch (cause) {
         if (token !== locationRequest.current || !live.current) return { message: '위치 갱신 취소', uv: null };
         const message = `위치 확인 완료 · UV 갱신 실패: ${cause.message} 마지막 유효 예보가 있으면 유지합니다.`;

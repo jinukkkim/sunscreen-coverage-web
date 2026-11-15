@@ -12,14 +12,14 @@ import { Button } from '@astryxdesign/core/Button';
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Divider } from '@astryxdesign/core/Divider';
-import { dailyEnd, dayKey, formatDate, formatTime, latestRecord, nextDue, parseInput, policyAt, recordSourceLabel, timeline, uvAt } from '../lib/reapplication.js';
+import { dailyEnd, dayKey, formatDate, formatTime, latestRecord, nextDue, parseInput, policyAt, recordSourceLabel, timeline, upcomingTimeline, uvAt } from '../lib/reapplication.js';
 
 const inputStyle = { font: 'inherit', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-background-surface)', border: 'thin solid var(--color-border)', padding: 'var(--spacing-2)', borderRadius: 'var(--radius-container)', maxWidth: '100%' };
 
 export default function CareDashboard({ model }) {
   const { care, now, forecast } = model;
   const [time, setTime] = useState(formatTime(Date.now())), [inputError, setInputError] = useState('');
-  const last = latestRecord(care), due = nextDue(care, now, forecast), rows = timeline(care, now, forecast);
+  const last = latestRecord(care), due = nextDue(care, now, forecast) || upcomingTimeline(care, now, forecast)[0], rows = timeline(care, now, forecast);
   const currentUv = uvAt(forecast, now, now);
   const policy = policyAt(forecast, now, now);
   const remindersOn = care.enabled && care.activeDay === dayKey(now) && now <= Date.parse(`${dayKey(now)}T${care.endTime}:00+09:00`);
@@ -34,7 +34,7 @@ export default function CareDashboard({ model }) {
       {model.alert && <Banner status="warning" title="재도포할 시간입니다" description={`${model.alert.detail} ${model.alert.location} ${model.alert.notificationError || ''}`} role="alert" isDismissable onDismiss={model.dismiss} endContent={<Button label="지금 바르고 기록하기" onClick={() => model.record()} />} />}
       <Grid columns={{ minWidth: 240, max: 3 }} gap={4}>
         <Card><VStack gap={2}><Text type="supporting">직전 도포 시각</Text><Heading level={2}>{last ? formatTime(last.at) : '기록 없음'}</Heading><Text type="supporting">{last ? `${formatDate(last.at)} · ${recordSourceLabel(last)}` : '실제로 바른 뒤 기록하거나 동작 관찰을 완료해 주세요.'}</Text></VStack></Card>
-        <Card><VStack gap={2}><Text type="supporting">다음 재도포 시각</Text><Heading level={2}>{policy.minutes === null ? '알림 대기' : due ? formatTime(due.at) : last ? '오늘 일정 종료' : '기록 후 안내'}</Heading><Text type="supporting">{policy.minutes === null ? due ? `UV 상승 예보 · ${formatTime(due.at)} 재개 예정` : 'UV 0–2 · 선택 도포' : due ? due.at <= now ? '예정 시각 지남 · 아직 재도포 기록 없음' : `약 ${Math.ceil((due.at - now) / 60000)}분 뒤 · ${due.minutes}분 주기 적용` : '오늘 종료 시각 안의 예정이 없습니다.'}</Text></VStack></Card>
+        <Card><VStack gap={2}><Text type="supporting">다음 재도포 시각</Text><Heading level={2}>{policy.minutes === null ? '알림 대기' : due ? formatTime(due.at) : '오늘 일정 종료'}</Heading><Text type="supporting">{policy.minutes === null ? due ? `UV 상승 예보 · ${formatTime(due.at)} 재개 예정` : 'UV 0–2 · 선택 도포' : due ? due.preview ? `미리보기 · 지금 바른다면 ${due.minutes}분 주기` : due.at <= now ? '예정 시각 지남 · 아직 재도포 기록 없음' : `약 ${Math.ceil((due.at - now) / 60000)}분 뒤 · ${due.minutes}분 주기 적용` : '오늘 종료 시각 안의 예정이 없습니다.'}</Text></VStack></Card>
         <Card><VStack gap={2}><Text type="supporting">현재 구간 UV 예보</Text><Heading level={2}>{currentUv ? currentUv.value : '확인 전'}</Heading><Text type="label">{policy.label}</Text><Text type="supporting">{currentUv ? `${formatTime(Date.parse(currentUv.validFrom))}–${formatTime(Date.parse(currentUv.validTo))} 구간 · 실측값 아님` : '위치와 기상청 데이터 연결 후 자동 적용'}</Text></VStack></Card>
       </Grid>
       <UpcomingTimeline care={care} now={now} forecast={forecast} />

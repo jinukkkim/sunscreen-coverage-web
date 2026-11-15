@@ -89,6 +89,43 @@ test('UV slot bounds and stale forecasts do not invent measurements', () => {
 function forecastOf(value, fetchedAt = at('09:00'), slots) {
   return { fetchedAt: new Date(fetchedAt).toISOString(), slots: slots || [{ value, validFrom: new Date(at('06:00')).toISOString(), validTo: new Date(at('23:59')).toISOString() }] };
 }
+
+test('without a record today the UV-driven preview starts from now without creating reminders', () => {
+  for (const records of [[], [{ id: 'yesterday', at: at('09:00') - 86400000 }]]) {
+    const state = { ...emptyCare(), enabled: true, activeDay: dayKey(at('09:00')), records };
+    for (const [uv, minutes] of [[3, 150], [4, 120], [7, 80], [8, 60]]) {
+      const rows = upcomingTimeline(state, at('09:00'), forecastOf(uv));
+      assert.equal(rows[0].at, at('09:00') + minutes * 60000);
+      assert.equal(rows[0].preview, true);
+      assert.ok(rows.every(row => row.at >= at('09:00') && row.at <= at('20:00')));
+      assert.equal(pendingReminder(state, at('12:00'), forecastOf(uv, at('12:00'))), null);
+    }
+    assert.equal(state.records.length, records.length);
+  }
+});
+
+test('UV refresh moves an unrecorded preview but never postpones a real application timer', () => {
+  const state = emptyCare();
+  assert.equal(upcomingTimeline(state, at('09:00'), forecastOf(7))[0].at, at('10:20'));
+  assert.equal(upcomingTimeline(state, at('09:10'), forecastOf(8, at('09:10')))[0].at, at('10:10'));
+  const recorded = recordApplication(state, at('09:10'), at('09:10'), 'actual');
+  const next = upcomingTimeline(recorded, at('09:20'), forecastOf(7, at('09:20')))[0];
+  assert.equal(next.at, at('10:30'));
+  assert.equal(next.preview, false);
+  assert.equal(recorded.records.length, 1);
+});
+
+test('current-time previews pause at low UV, resume at a future boundary and handle expiry and day end', () => {
+  const slots = [[0, '09:00', '10:00'], [8, '10:00', '12:00'], [0, '12:00', '23:59']].map(([value, from, to]) => ({ value, validFrom: new Date(at(from)).toISOString(), validTo: new Date(at(to)).toISOString() }));
+  const rows = upcomingTimeline(emptyCare(), at('09:00'), forecastOf(0, at('09:00'), slots));
+  assert.deepEqual(rows.map(row => row.at), [at('10:00'), at('11:00')]);
+  assert.equal(rows[0].uv, 8);
+  assert.deepEqual(upcomingTimeline(emptyCare(), at('09:00'), forecastOf(0)), []);
+  const stale = upcomingTimeline(emptyCare(), at('10:01'), forecastOf(8));
+  assert.equal(stale[0].minutes, 120);
+  assert.equal(stale[0].at, at('12:01'));
+  assert.deepEqual(upcomingTimeline(emptyCare(), at('20:01'), forecastOf(8, at('20:01'))), []);
+});
 test('the requested UV bands map to waiting, 150, 120, 80 and 60 minutes', () => {
   for (const [uv, minutes] of [[0, null], [1, null], [2, null], [3, 150], [4, 120], [5, 120], [6, 80], [7, 80], [8, 60], [11, 60], [30, 60]]) {
     assert.equal(uvPolicy(uv).minutes, minutes, `UV ${uv}`);

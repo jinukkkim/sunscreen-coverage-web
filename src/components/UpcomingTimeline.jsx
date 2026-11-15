@@ -8,6 +8,7 @@ import { dailyEnd, dayKey, formatDate, formatTime, latestRecord, policyAt, recor
 
 export default function UpcomingTimeline({ care, now, forecast }) {
   const rows = upcomingTimeline(care, now, forecast), last = latestRecord(care);
+  const preview = !last || dayKey(last.at) !== dayKey(now);
   const policy = policyAt(forecast, now, now);
   const events = [
     ...care.records.filter(record => dayKey(record.at) === dayKey(now)).map(record => ({ ...record, id: `record-${record.id}`, kind: 'record', label: '도포 완료' })),
@@ -15,14 +16,14 @@ export default function UpcomingTimeline({ care, now, forecast }) {
     ...(!rows.some(row => row.immediate) ? [{ id: 'now', at: now, kind: 'now', label: '현재 시각' }] : []),
     { id: 'end', at: dailyEnd(care, now), kind: 'end', label: '오늘 알림 종료' },
   ].sort((a, b) => a.at - b.at);
-  const emptyMessage = !last ? '첫 도포를 완료하거나 바른 시각을 기록하면 다음 일정을 안내합니다.'
-    : now >= dailyEnd(care, now) ? '오늘 종료 시각이 지났습니다. 종료 시각을 조정하면 일정을 이어갈 수 있습니다.'
-      : policy.minutes === null ? '오늘 종료 시각까지 재도포 예정이 없습니다.' : '오늘 종료 시각 안의 다음 예정이 없습니다. 새 도포를 기록하거나 종료 시각을 조정하세요.';
+  const emptyMessage = now >= dailyEnd(care, now) ? '오늘 종료 시각이 지났습니다. 종료 시각을 조정하면 일정을 이어갈 수 있습니다.'
+    : policy.minutes === null ? '현재 기준으로 오늘 종료 시각까지 재도포 예정이 없습니다.' : '오늘 종료 시각 안의 다음 예정이 없습니다. 종료 시각을 조정하면 일정을 이어갈 수 있습니다.';
   return <Section padding={4}>
     <VStack as="section" aria-label="앞으로 바를 시각" gap={4} style={{ minWidth: 0 }}>
       <Heading level={2}>{formatDate(now)} · 하루 도포 타임라인</Heading>
-      <Text>오늘 바른 시각부터 앞으로 덧바를 시각까지 한눈에 확인하세요.</Text>
-      <Text type="label">{policy.label} · 오늘 {care.endTime}까지</Text>
+      <Text>{preview ? '지금 처음 바른다면 언제 다시 바를지 보여주는 미리보기입니다. 실제로 바른 시각을 기록하면 그 시각부터 계산합니다.' : '현재 시각 이후의 재도포 일정입니다. 실제 직전 도포 시각과 최신 UV 예보를 반영합니다.'}</Text>
+      <Text type="label">{policy.label} · 기준 {formatTime(now)} · 오늘 {care.endTime}까지</Text>
+      {forecast && <Text type="supporting">{forecast.location.name} 인근 기상청 지점 · UV 갱신 {formatTime(Date.parse(forecast.fetchedAt))}</Text>}
       <HStack gap={4} wrap="wrap">
         <Text type="supporting">● 도포 완료</Text>
         <Text type="supporting">◉ 현재 / 다음 도포</Text>
@@ -44,7 +45,7 @@ export default function UpcomingTimeline({ care, now, forecast }) {
                 <Text type={event.kind === 'plan' ? 'large' : 'label'} weight="bold" hasTabularNumbers color={event.kind === 'end' ? 'secondary' : 'primary'}>{formatTime(event.at)} · {event.label}</Text>
                 {event.kind === 'plan' && <Text type="label">{event.immediate ? '지금 바를 시간' : `${Math.ceil((event.at - now) / 60000)}분 뒤`}</Text>}
               </VStack>
-              <Text type="supporting">{event.kind === 'record' ? recordSourceLabel(event) : event.kind === 'now' ? '여기부터 앞으로의 도포 일정을 확인하세요.' : event.kind === 'end' ? '이 시각 이후에는 오늘 알림을 보내지 않습니다.' : `${event.uv === null ? 'UV 정보 없음 · 기본' : `UV ${event.uv}`} · ${event.minutes}분 주기${event.conditional ? ' · 앞선 예정에 발랐을 때' : event.immediate ? ' · 지난 예정은 완료로 처리하지 않습니다' : ' · 직전 도포 기준'}`}</Text>
+              <Text type="supporting">{event.kind === 'record' ? recordSourceLabel(event) : event.kind === 'now' ? preview ? '지금 바른다는 기준의 미리보기 · 도포 기록 아님' : '여기부터 앞으로의 도포 일정을 확인하세요.' : event.kind === 'end' ? '이 시각 이후에는 오늘 알림을 보내지 않습니다.' : `${event.uv === null ? 'UV 정보 없음 · 기본' : `UV ${event.uv}`} · ${event.minutes}분 주기${event.conditional ? ' · 앞선 예정에 발랐을 때' : event.immediate ? ' · 지난 예정은 완료로 처리하지 않습니다' : event.preview ? ' · 지금 바른다면' : ' · 직전 도포 기준'}`}</Text>
             </VStack>
           </VStack>;
         })}
