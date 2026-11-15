@@ -25,6 +25,11 @@
 - [동작 진행률·완료 시각 자동 기록·UV별 알림 연결](superpowers/specs/2026-11-14-motion-completion-reminders.md)
 - [제품 등록·사진 인식·맞춤 솔루션](superpowers/specs/product-profile.md)
 
+- [제품 등록부터 기록까지 이어지는 선케어 흐름](superpowers/specs/2026-11-15-unified-care-flow-design.md)
+- [고정 카메라·제품 촬영·결과 확인·건너뛰기](superpowers/specs/2026-11-15-persistent-camera-design.md)
+- [통합 흐름 구현 계획](superpowers/plans/2026-11-15-unified-care-flow.md)
+- [공유 카메라 구현·검증 기록](superpowers/plans/2026-11-15-persistent-camera.md)
+
 ## 문서 관리
 
 선크림 관련 문서는 이 `docs/`에서 Git으로 관리하며 GitHub 게시 대상에 포함한다. 이전 아이디어의 문서·조사·소개 사이트는 프로젝트 루트의 `archive/`에 보존하고, `.gitignore`의 `/archive/` 규칙으로 제외한다.

@@ -9,34 +9,33 @@ import { Button } from '@astryxdesign/core/Button';
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { PRODUCT_FORMS, WATER_RESISTANCE, emptyProfile, validateProfile } from '../lib/product.js';
 import { clearProfile, loadProfile, saveProfile } from '../lib/productStorage.js';
-import { checkImageFile, downscaleImage } from '../lib/image.js';
-import { candidateTitle, candidatesFromRecognition, createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../lib/labelRecognition.js';
+import { createVisionAdapter, draftFromRecognition, needsReview, recognizeLabel } from '../lib/labelRecognition.js';
 import ProductSolution, { FORM_LABEL } from './ProductSolution.jsx';
 
 const WATER_LABEL = { none: '없음(표기 없음)', '40min': '40분', '80min': '80분', unknown: '모름' };
 const inputStyle = { font: 'inherit', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-background-surface)', border: 'thin solid var(--color-border)', padding: 'var(--spacing-2)', borderRadius: 'var(--radius-container)', maxWidth: '100%', width: '100%' };
-const optionStyle = selected => ({ display: 'block', cursor: 'pointer', padding: 'var(--spacing-3)', borderRadius: 'var(--radius-container)', border: selected ? 'medium solid var(--color-text-primary)' : 'thin solid var(--color-border)', backgroundColor: 'var(--color-background-surface)' });
 const adapter = createVisionAdapter();
 
-// Photos are taken with the OS camera through a file input, not a getUserMedia stream, so this
-// component never competes with the shared face camera for the device.
-export default function ProductSetup({ storage = window.localStorage }) {
+export default function ProductSetup({ storage = window.localStorage, onProfileChange, capturePhoto, cameraActive, photoFrozen, onRetake }) {
   const [saved, setSaved] = useState(() => loadProfile(storage));
-  const [mode, setMode] = useState('idle'); // idle | recognizing | choose | draft
+  const [mode, setMode] = useState('idle'); // idle | recognizing | draft
   const [draft, setDraft] = useState(emptyProfile);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [consent, setConsent] = useState(false);
   const [notVisible, setNotVisible] = useState([]);
-  const [result, setResult] = useState(null);
-  const [candidates, setCandidates] = useState([]);
-  const [picked, setPicked] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const front = useRef(null);
-  const back = useRef(null);
   const abort = useRef(null);
 
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => {
+    const hide = () => { if (document.hidden) { abort.current?.abort(); setMode(current => current === 'recognizing' ? 'idle' : current); } };
+    document.addEventListener('visibilitychange', hide);
+    return () => { abort.current?.abort(); document.removeEventListener('visibilitychange', hide); };
+  }, []);
+  useEffect(() => {
+    if (!cameraActive) { abort.current?.abort(); setMode(current => current === 'recognizing' ? 'idle' : current); }
+  }, [cameraActive]);
+  useEffect(() => { onProfileChange?.(mode === 'idle' ? saved : null); }, [saved, mode, onProfileChange]);
 
   useEffect(() => {
     if (mode !== 'recognizing') return undefined;
@@ -52,9 +51,6 @@ export default function ProductSetup({ storage = window.localStorage }) {
     setErrors({});
     setError('');
     setNotVisible([]);
-    setResult(null);
-    setCandidates([]);
-    setPicked(0);
   }
 
   function startManual() {
@@ -64,29 +60,29 @@ export default function ProductSetup({ storage = window.localStorage }) {
 
   async function analyze() {
     setError('');
-    const files = [front.current?.files?.[0], back.current?.files?.[0]].filter(Boolean);
-    if (!files.length) return setError('앞면 또는 뒷면 사진을 한 장 이상 선택해 주세요.');
-    for (const file of files) {
-      const problem = checkImageFile(file);
-      if (problem) return setError(problem);
-    }
     if (!consent) return setError('사진 전송에 동의해야 분석할 수 있습니다. 동의하지 않으면 직접 입력을 이용해 주세요.');
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
     setMode('recognizing');
     try {
-      const images = await Promise.all(files.map(file => downscaleImage(file)));
+      const frame = capturePhoto();
+      let data;
+      try { data = frame.toDataURL('image/jpeg', .85).split(',')[1]; }
+      finally { frame.width = 1; frame.height = 1; }
+      const images = [{ mimeType: 'image/jpeg', data }];
       if (controller.signal.aborted) return;
-      const recognized = await recognizeLabel(images.map(({ mimeType, data }) => ({ mimeType, data })), { adapter, signal: controller.signal });
+      const recognized = await recognizeLabel(images, { adapter, signal: controller.signal });
       if (controller.signal.aborted) return;
-      setResult(recognized);
       setNotVisible(recognized.notVisible ?? []);
-      setCandidates(candidatesFromRecognition(recognized));
-      setPicked(0);
-      setMode('choose');
+      const next = draftFromRecognition(recognized, 0);
+      if (isComplete(next)) {
+        register(next);
+      } else {
+        setDraft(next); setMode('draft');
+      }
     } catch (cause) {
-      if (controller.signal.aborted && cause.code === 'cancelled') return;
+      if (controller.signal.aborted) return;
       setMode('idle');
       setError(`${cause.message ?? '분석에 실패했습니다.'} 직접 입력으로 등록할 수 있습니다.`);
     }
@@ -95,6 +91,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
   function cancel() {
     abort.current?.abort();
     setMode('idle');
+    onRetake?.();
   }
 
   // Identity fields the solution needs. When the photo gave all of them, register at once;
@@ -103,21 +100,9 @@ export default function ProductSetup({ storage = window.localStorage }) {
     return Boolean(d.name) && d.spf !== null && d.paGrade !== null && d.form !== 'unknown';
   }
 
-  function chooseCandidate() {
-    if (!result) return;
-    const next = draftFromRecognition(result, picked);
-    setErrors({});
-    if (isComplete(next)) {
-      try {
-        setSaved(saveProfile(storage, { ...next, id: crypto.randomUUID(), registeredAt: new Date().toISOString() }));
-        reset();
-        return;
-      } catch (cause) {
-        setError(cause.message);
-      }
-    }
-    setDraft(next);
-    setMode('draft');
+  function register(profile) {
+    const stored = saveProfile(storage, { ...profile, id: profile.id || crypto.randomUUID(), registeredAt: new Date().toISOString() });
+    setSaved(stored); reset();
   }
 
   function editSaved() {
@@ -139,8 +124,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
     const check = validateProfile(profile);
     if (!check.ok) return setErrors(check.errors);
     try {
-      setSaved(saveProfile(storage, profile));
-      reset();
+      register(profile);
     } catch (cause) {
       setError(cause.message);
     }
@@ -150,6 +134,7 @@ export default function ProductSetup({ storage = window.localStorage }) {
     clearProfile(storage);
     setSaved(null);
     reset();
+    onRetake?.();
   }
 
   if (saved && mode === 'idle') return <ProductSolution profile={saved} onReset={removeSaved} onEdit={editSaved} />;
@@ -170,55 +155,16 @@ export default function ProductSetup({ storage = window.localStorage }) {
 
         {(mode === 'idle' || mode === 'recognizing') && (
           <VStack gap={4}>
-            <Text>제품 앞면(SPF·PA)과 뒷면(전성분·책임판매업자)을 찍으면 라벨을 읽어 등록합니다. 읽지 못한 항목만 직접 채웁니다.</Text>
-            <Grid columns={{ minWidth: 220, max: 2 }} gap={3}>
-              {field('product-front', '앞면 사진', <input id="product-front" ref={front} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={mode === 'recognizing'} style={inputStyle} />)}
-              {field('product-back', '뒷면 사진 (선택)', <input id="product-back" ref={back} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={mode === 'recognizing'} style={inputStyle} />)}
-            </Grid>
-            <CheckboxInput label="제품 사진을 외부 AI 모델(Google Gemini)로 전송하는 데 동의합니다" description="사진은 분석 서버를 거쳐 모델로 전달되며 저장되지 않습니다. 얼굴 카메라 영상은 전송되지 않습니다." value={consent} onChange={() => setConsent(c => !c)} isDisabled={mode === 'recognizing'} />
+            <Text>선크림의 제품명·SPF·PA가 가이드 안에 선명하게 보이도록 들고 촬영하세요. 인식된 정보를 확인한 뒤 다음 단계로 진행하세요. 읽지 못한 항목은 직접 확인할 수 있습니다.</Text>
+            <CheckboxInput label="제품 사진을 외부 AI 모델(Google Gemini)로 전송하는 데 동의합니다" description="제품 가이드 안의 촬영 영역을 분석 서버와 Gemini로 보내며 저장하지 않습니다. 그 안의 얼굴·배경도 포함될 수 있으니 제품만 담아 주세요. 얼굴 측정·스캔 단계는 전송하지 않습니다." value={consent} onChange={() => setConsent(c => !c)} isDisabled={mode === 'recognizing'} />
             {mode === 'recognizing' && <Text role="status">라벨을 읽고 있습니다. ({elapsed}초 경과 · 보통 10~30초, 최대 100초)</Text>}
             {error && <Text as="p" role="alert">{error}</Text>}
             <HStack wrap="wrap" gap={2}>
-              <Button variant="primary" label="사진으로 읽기" onClick={analyze} isDisabled={mode === 'recognizing'} />
+              <Button variant="primary" label={photoFrozen ? '사진 다시 인식' : '선크림 촬영하고 인식'} onClick={analyze} isDisabled={mode === 'recognizing' || !cameraActive} />
+              {photoFrozen && mode === 'idle' && <Button label="다시 촬영" onClick={onRetake} />}
               {mode === 'recognizing'
                 ? <Button label="취소" onClick={cancel} />
                 : <Button label="직접 입력" onClick={startManual} />}
-            </HStack>
-          </VStack>
-        )}
-
-        {mode === 'choose' && (
-          <VStack gap={3}>
-            <Text type="label">사진에서 읽은 후보 {candidates.length}개</Text>
-            <Text>내 제품과 맞는 항목을 고르세요.</Text>
-            <VStack gap={2} role="radiogroup" aria-label="제품 후보">
-              {candidates.map(c => (
-                <label key={c.index} style={optionStyle(picked === c.index)}>
-                  <HStack gap={2} vAlign="start">
-                    <input type="radio" name="candidate" value={c.index} checked={picked === c.index} onChange={() => setPicked(c.index)} style={{ marginTop: 'var(--spacing-1)' }} />
-                    <VStack gap={0}>
-                      <Text weight="bold">{candidateTitle(c)}</Text>
-                      <Text type="supporting">
-                        {c.spf === null ? 'SPF 미확인' : `SPF ${c.spf}${c.spfPlus ? '+' : ''}`}
-                        {' · '}{c.paGrade === null ? 'PA 미확인' : `PA${'+'.repeat(c.paGrade)}`}
-                        {' · '}{FORM_LABEL[c.form] ?? c.form}
-                        {c.waterResistance !== 'unknown' ? ` · 내수성 ${WATER_LABEL[c.waterResistance]}` : ''}
-                        {c.sellerName ? ` · ${c.sellerName}` : ''}
-                      </Text>
-                      {(c.label || c.score !== null) && (
-                        <Text type="supporting">{[c.label, c.score !== null ? `가능성 ${Math.round(c.score * 100)}%` : ''].filter(Boolean).join(' · ')}</Text>
-                      )}
-                    </VStack>
-                  </HStack>
-                </label>
-              ))}
-            </VStack>
-            {notVisible.length > 0 && <Text type="supporting">사진에서 읽지 못한 항목: {notVisible.length}개 — 비어 있으면 다음 화면에서 채웁니다.</Text>}
-            {error && <Text as="p" role="alert">{error}</Text>}
-            <HStack wrap="wrap" gap={2}>
-              <Button variant="primary" label="이 제품으로 계속" onClick={chooseCandidate} />
-              <Button label="목록에 없음 · 직접 입력" onClick={startManual} />
-              <Button variant="ghost" label="취소" onClick={reset} />
             </HStack>
           </VStack>
         )}

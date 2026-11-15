@@ -85,7 +85,7 @@ export function HomeMethod() {
       <details>
         <summary>
           <Text as="span" type="inherit">04</Text> 얼굴 사진은 어디로 가나요?</summary>
-        <Text as="p" type="inherit" display="block">사진과 영상은 이 브라우저의 메모리 안에서만 처리해요. 서버로 보내거나 로컬 저장소에 저장하지 않아요. 모델과 실행 파일만 사이트에서 내려받으며, 초기화하거나 페이지를 나가면 분석 입력을 해제해요.</Text>
+        <Text as="p" type="inherit" display="block">얼굴 측정·도포 동작 영상과 특징점은 이 브라우저 메모리에서만 처리하고 저장·전송하지 않아요. 제품 등록에서 동의 후 촬영한 가이드 영역만 분석 서버와 Google Gemini로 보내요. 이 영역에 들어온 얼굴·배경도 포함될 수 있어 제품만 담아 주세요. 촬영 이미지는 저장하지 않아요.</Text>
       </details>
     </VStack>
   </VStack>;
