@@ -69,7 +69,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
   await expect.poll(async () => Number(await overall.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
   expect(Number(await overall.getAttribute('aria-valuenow'))).toBeLessThan(100);
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   await page.screenshot({ path: '.pr-review/motion-partial.png', fullPage: true });
   const overlay = page.locator('canvas[aria-hidden="true"]');
   const hasOverlay = () => overlay.evaluate(canvas =>
@@ -91,7 +91,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   const before = await page.evaluate(() => Date.now());
   await page.evaluate(() => { window.motionFixture.limit = Infinity; });
   await expect(page.getByRole('heading', { name: '오늘의 선케어를 이어가세요', exact: true })).toBeVisible({ timeout: 35000 });
@@ -104,7 +104,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(stored.records[0].at).toBeGreaterThanOrEqual(before);
   expect(stored.enabled).toBe(true);
   expect(stored.endTime).toBe('18:30');
-  await expect(page.getByRole('heading', { name: formatTime(stored.records[0].at + 80 * 60000), exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(`${formatTime(stored.records[0].at + 80 * 60000)} · 다음 재도포`, { exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
   await expect.poll(hasOverlay).toBe(false);
@@ -118,12 +118,13 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
   uv = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
+  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
   await expect(page.getByText(/동작 완료 자동 기록/).first()).toBeVisible();
-  await page.getByRole('button', { name: `${formatTime(stored.records[0].at)} 기록 취소`, exact: true }).click();
+  await expect(page.getByRole('button', { name: /기록 취소$/ })).toHaveCount(0);
+  await page.getByRole('button', { name: '다시 바르기', exact: true }).click();
   await expect(page.getByRole('heading', { name: '오늘의 선케어를 이어가세요', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '다음 단계로', exact: true })).toBeEnabled();
   await page.reload();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
   expect(errors).toEqual([]);
 });

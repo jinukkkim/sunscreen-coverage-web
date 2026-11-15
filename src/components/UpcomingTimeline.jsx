@@ -21,7 +21,6 @@ export default function UpcomingTimeline({ care, now, forecast }) {
   return <Section padding={4}>
     <VStack as="section" aria-label="앞으로 바를 시각" gap={4} style={{ minWidth: 0 }}>
       <Heading level={2}>{formatDate(now)} · 하루 도포 타임라인</Heading>
-      <Text>오늘 바른 시각부터 앞으로 덧바를 시각까지 한눈에 확인하세요.</Text>
       <Text type="label">{policy.label} · 오늘 {care.endTime}까지</Text>
       <HStack gap={4} wrap="wrap">
         <Text type="supporting">● 도포 완료</Text>
@@ -30,7 +29,6 @@ export default function UpcomingTimeline({ care, now, forecast }) {
       </HStack>
       {policy.minutes === null && <Text>현재 UV 0–2로 대기 중입니다. 이후 UV가 높아지는 예보가 있으면 그 시각부터 안내합니다.</Text>}
       {rows.length === 0 && <Text>{emptyMessage}</Text>}
-      <Text type="supporting">시간 순서대로 오른쪽으로 이어집니다. 좌우로 스크롤해 하루 일정을 확인하세요.</Text>
       <HStack as="ol" aria-label="하루 도포 타임라인" tabIndex={0} isScrollable width="100%" maxWidth="100%" gap={0} padding={1} style={{ listStyle: 'none', margin: 0, minWidth: 0 }}>
         {events.map((event, index) => {
           const current = event.kind === 'now' || event.immediate;

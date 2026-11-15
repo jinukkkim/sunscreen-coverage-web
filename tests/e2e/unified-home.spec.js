@@ -29,12 +29,48 @@ async function syntheticCamera(page, { pending = false, pendingModels = false } 
     export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [], createFromOptions: async (_, options) => {
       if (options.runningMode === 'VIDEO' && window.blockVisionModel) await new Promise(resolve => { window.releaseVisionModel = resolve; });
       return ({
-      detect: () => ({faceLandmarks: [window.guideLandmarks]}),
+      detect: () => ({faceLandmarks: window.guideFaces ?? [window.guideLandmarks]}),
       detectForVideo: () => ({faceLandmarks: [window.guideLandmarks]}), close() { window.closedVisionModels++; }
     }); }};
     export const HandLandmarker = {createFromOptions: async () => ({detectForVideo: () => ({landmarks: []}), close() { window.closedVisionModels++; }})};
   ` }));
 }
+
+test('measurement step displays live iris pixels and area without reopening the camera', async ({ page }) => {
+  await seedProduct(page); await syntheticCamera(page); await page.goto('/');
+  await page.getByRole('button', { name: '다음 단계로', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('40.0');
+  await expect(page.locator('#live-face-area')).toHaveText(/\d+\.\d/);
+  const area = await page.locator('#live-face-area').innerText();
+  await expect(page.locator('#live-measure-detail')).toContainText('1000 × 1000 px');
+  await page.evaluate(() => {
+    window.originalGuideLandmarks = structuredClone(window.guideLandmarks);
+    window.guideLandmarks = window.originalGuideLandmarks.map(p => ({x:.5+(p.x-.5)*.5,y:.5+(p.y-.5)*.5,z:p.z*.5}));
+  });
+  await expect(page.locator('#live-iris-px')).toHaveText('20.0');
+  await expect(page.locator('#live-face-area')).toHaveText(area);
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel('실시간 얼굴 측정', { exact: true }).screenshot({ path: '.pr-review/live-face-measurements-mobile.png' });
+  await page.evaluate(() => { window.guideLandmarks = window.originalGuideLandmarks.map(p => ({x:.5+(p.x-.5)*.2,y:.5+(p.y-.5)*.2,z:p.z*.2})); });
+  await expect(page.locator('#live-iris-px')).toHaveText('8.0');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  await expect(page.locator('#live-measure-reason')).toContainText('홍채');
+  await page.evaluate(() => { window.guideFaces = []; });
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  await page.evaluate(() => { window.guideFaces = [window.originalGuideLandmarks]; });
+  await expect(page.locator('#live-iris-px')).toHaveText('40.0');
+  await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
+  await page.getByRole('button', { name: '선크림 등록으로 돌아가기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
+});
 
 test('home guide keeps local dose controls and proceeds to automatic motion without recording', async ({ page }) => {
   await seedProduct(page); await syntheticCamera(page); await page.goto('/');
@@ -43,10 +79,10 @@ test('home guide keeps local dose controls and proceeds to automatic motion with
   const before = await page.locator('#live-finger-value').innerText();
   await page.getByLabel(/검지 한 마디 길이/).fill('40');
   await expect(page.locator('#live-finger-value')).not.toHaveText(before);
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   await page.getByRole('button', { name: '도포 스캔 시작', exact: true }).click();
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
 });
 

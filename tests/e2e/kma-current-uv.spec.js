@@ -26,14 +26,13 @@ test('one KMA query updates current UV, reminders and the daily timeline togethe
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('현재 시간대 자외선지수: 7', { exact: true })).toBeVisible();
   await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '10:20', exact: true })).toBeVisible();
   await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('10:20 · 다음 재도포', { exact: true })).toBeVisible();
   expect(queries).toBe(1);
   expect(legacyQueries).toBe(0);
   value = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
   await expect(page.getByText('현재 시간대 자외선지수: 0', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
+  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
   await page.screenshot({ path: '.pr-review/kma-uv-desktop.png', fullPage: true });
   await page.clock.fastForward(61 * 60000);
   await expect(page.getByText('현재 시간대 자외선지수: 0', { exact: true })).toHaveCount(0);

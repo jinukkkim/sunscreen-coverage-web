@@ -6,11 +6,11 @@ test('records an application, recalculates the timeline and survives a reload', 
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '09:00', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '11:00', exact: true })).toBeVisible();
-  await expect(page.getByText('09:00 · 첫 도포 기록')).toBeVisible();
+  const dayline = page.getByRole('list', { name: '하루 도포 타임라인' });
+  await expect(dayline.getByText('09:00 · 도포 완료', { exact: true })).toBeVisible();
+  await expect(dayline.getByText('11:00 · 다음 재도포', { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText('09:00 · 첫 도포 기록')).toBeVisible();
+  await expect(dayline.getByText('09:00 · 도포 완료', { exact: true })).toBeVisible();
   await page.getByLabel('오늘 이전에 바른 시각 (한국 시간)').fill('10:00');
   await page.getByRole('button', { name: '입력한 시각 저장' }).click();
   await expect(page.getByText(/미래 시각은 기록할 수 없습니다/)).toBeVisible();
@@ -43,7 +43,7 @@ test('due alert refreshes location, keeps incomplete plans, and does not repeat 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
   await page.reload();
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('07:01 · 첫 도포 기록')).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('07:01 · 도포 완료', { exact: true })).toBeVisible();
 });
 
 test('foreground alert still works without location or notification permission', async ({ page }) => {
@@ -58,12 +58,16 @@ test('foreground alert still works without location or notification permission',
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
   await expect(page.getByText(/위치·예보 갱신 실패/)).toBeVisible();
   await page.getByRole('button', { name: '지금 바르고 기록하기' }).click();
-  await expect(page.getByRole('heading', { name: '11:00', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('11:00 · 다음 재도포', { exact: true })).toBeVisible();
 });
 
 test('mobile layout keeps controls and timeline inside the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  for (const name of ['오늘의 선케어 타임라인', '다음 재도포 일정', '직전 도포 시각', '다음 재도포 시각', '현재 구간 UV 예보', '오늘 바른 시각부터 앞으로 덧바를 시각까지 한눈에 확인하세요.', '시간 순서대로 오른쪽으로 이어집니다. 좌우로 스크롤해 하루 일정을 확인하세요.', '오늘의 도포 기록이 없습니다.']) {
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByRole('heading', { name: /\d{4}.*도포 기록/ })).toHaveCount(0);
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const dayline = page.getByRole('list', { name: '하루 도포 타임라인' });
@@ -82,7 +86,7 @@ test('storage failure retains in-memory records when reminders are enabled', asy
   await page.goto('/');
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
   await page.getByRole('button', { name: '오늘 야외활동 알림 켜기' }).click();
-  await expect(page.getByText('09:00 · 첫 도포 기록')).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:00 · 도포 완료', { exact: true })).toBeVisible();
   await expect(page.getByText(/기록을 기기에 저장하지 못했습니다/)).toBeVisible();
 });
 
