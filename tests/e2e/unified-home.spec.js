@@ -133,6 +133,31 @@ test('compact home preserves the team shell and camera status on mobile and desk
   expect(errors).toEqual([]);
 });
 
+test('phone pins the live camera above step actions while the desktop layout stays static', async ({ page }) => {
+  await syntheticCamera(page); await page.setViewportSize({ width: 375, height: 667 }); await page.goto('/');
+  const section = () => page.evaluate(() => getComputedStyle(document.querySelector('#camera-stage').closest('section')).position);
+  expect(await section()).toBe('static');
+  // The collapsed phone stepper must not repeat the step heading below its track.
+  await expect(page.locator('.astryx-stepper-summary')).toHaveCount(0);
+  await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('카메라 사용 중');
+  const bothVisible = name => page.evaluate(name => {
+    const stage = document.querySelector('#camera-stage').getBoundingClientRect();
+    const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === name).getBoundingClientRect();
+    const off = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === '카메라 끄기').getBoundingClientRect();
+    return stage.top >= 0 && stage.bottom <= innerHeight && off.bottom <= innerHeight && button.top >= off.bottom && button.bottom <= innerHeight + 1;
+  }, name);
+  for (const [name, next] of [['선크림 촬영하고 인식', '건너뛰기'], ['촬영하고 측정', null]]) {
+    await page.evaluate(name => [...document.querySelectorAll('button')].find(item => item.textContent.trim() === name).scrollIntoView({ block: 'end', behavior: 'instant' }), name);
+    await expect.poll(() => bothVisible(name)).toBe(true);
+    await page.screenshot({ path: `.pr-review/pinned-camera-${name}.png` });
+    if (next) await page.getByRole('button', { name: next, exact: true }).click();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(section).toBe('static');
+});
+
 test('stopping during model loading closes late models without resuming observation', async ({ page }) => {
   await seedProduct(page); await syntheticCamera(page, { pendingModels: true }); await page.goto('/');
   await enterScan(page);

@@ -68,7 +68,7 @@ export default function CareFlow({ model }) {
       <Heading level={1}>내 선크림부터 오늘의 알림까지</Heading>
       <Text>내 제품을 등록하고, 얼굴 크기에 따른 참고량을 확인한 뒤 펴 바르는 동작을 스캔하세요.</Text>
     </VStack>
-    <Stepper activeStep={step} orientation="horizontal" label="선케어 단계">
+    <Stepper activeStep={step} orientation="horizontal" label="선케어 단계" horizontalOptions={{ minimumStepWidth: 112, collapsedVariant: 'hiddenLabel' }}>
       {steps.map((label, index) => <Step key={label} step={index} label={label} description={index === 0 && skippedProduct && step > 0 ? '건너뜀' : undefined} />)}
     </Stepper>
     <h2 ref={heading} tabIndex={-1} style={{ font: 'inherit', fontWeight: 'bold', margin: 0 }}>{step + 1} / 5 · {steps[step]}</h2>
