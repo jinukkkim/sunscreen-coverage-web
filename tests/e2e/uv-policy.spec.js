@@ -23,13 +23,13 @@ async function setup(page, currentUv) {
   return () => requests;
 }
 
-for (const [uv, time, label] of [[0, '알림 대기', '알림 대기'], [2, '알림 대기', '알림 대기'], [3, '10:30', '150분'], [5, '10:00', '120분'], [7, '09:20', '80분'], [8, '09:00', '60분']]) {
+for (const [uv, time, label, heading] of [[0, '알림 대기', '알림 대기', '낮음 · 재도포 알림 대기'], [2, '알림 대기', '알림 대기', '낮음 · 재도포 알림 대기'], [3, '10:30', '150분', '보통 · 150분마다 덧바르기'], [5, '10:00', '120분', '보통 · 120분마다 덧바르기'], [7, '09:20', '80분', '높음 · 80분마다 덧바르기'], [8, '09:00', '60분', '매우 높음 · 60분마다 덧바르기']]) {
   test(`UV ${uv} applies ${label} to the timer and timeline`, async ({ page }) => {
     await setup(page, () => uv);
     await page.getByLabel('오늘 이전에 바른 시각 (한국 시간)').fill('08:00');
     await page.getByRole('button', { name: '입력한 시각 저장' }).click();
     await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-    await expect(page.getByText(`적용 주기: ${label}${uv < 3 ? ' (선택 도포)' : ''}`, { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     if (uv < 3) {
       await page.getByRole('button', { name: '오늘 야외활동 알림 켜기' }).click();
       await expect(page.getByText('재도포할 시간입니다', { exact: true })).toHaveCount(0);
@@ -56,7 +56,7 @@ test('a new UV value immediately recalculates the timer and alert text', async (
   await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:20 · 다음 재도포', { exact: true })).toBeVisible();
   uv = 2;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
-  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '낮음 · 재도포 알림 대기', exact: true })).toBeVisible();
   uv = 8;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
   await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:00 · 다음 재도포', { exact: true })).toBeVisible();

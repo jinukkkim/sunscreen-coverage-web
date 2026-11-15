@@ -11,6 +11,9 @@ import { Button } from '@astryxdesign/core/Button';
 import { Section } from '@astryxdesign/core/Section';
 
 const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0, progress: 0, sessionId: null, completedAt: null };
+// Readable labels over the live video.
+const chip = { backgroundColor: 'var(--color-background-surface)', padding: 'var(--spacing-1) var(--spacing-2)', borderRadius: 'var(--radius-full)' };
+
 export default function Camera({ onAnalysisChange, video, mode = 'motion', onActiveChange, photoFrozen = false }) {
   const session = useRef(null), vision = useRef(null), completionCanvas = useRef(null);
   const request = useRef(0), alive = useRef(true), onChange = useRef(onAnalysisChange);
@@ -107,7 +110,7 @@ export default function Camera({ onAnalysisChange, video, mode = 'motion', onAct
   }
 
   return (
-    <Section padding={4} className="capture-panel">
+    <Section variant="muted" padding={4}>
       <VStack gap={3}>
         <Heading level={2}>선케어 카메라</Heading>
         <VStack id="camera-stage" style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
@@ -117,9 +120,9 @@ export default function Camera({ onAnalysisChange, video, mode = 'motion', onAct
           {mode === 'product' && <VStack aria-hidden="true" style={{ position: 'absolute', left: '25%', top: '10%', width: '50%', height: '80%', border: 'medium dashed var(--color-text-primary)', borderRadius: 'var(--radius-container)', pointerEvents: 'none' }} />}
           {mode === 'motion' && status === 'active' && analysis.phase !== 'completed' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
           {status !== 'active' && mode !== 'completed' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
-          <HStack className="stage-meta" hAlign="between">
-            <Text type="supporting">{mode === 'product' ? '제품 촬영' : '얼굴·동작 분석'}</Text>
-            <Text id="stage-resolution" role="status" aria-label="인식 상태" aria-live="polite">{mode === 'completed' ? '동작 관찰 완료' : photoFrozen ? '촬영 사진 확인 중' : status === 'loading' ? '카메라 연결 중' : status !== 'active' ? '카메라 꺼짐' : mode !== 'motion' ? '카메라 사용 중' : ({ loading: '인식 준비 중', scanning: '얼굴 스캔 중', ready: '자동 시작 준비 중', recovering: '인식 복구 대기', tracking: '제품을 바르세요', error: '분석 재시도 필요' }[analysis.phase] || '카메라 사용 중')}</Text>
+          <HStack hAlign="between" vAlign="start" gap={2} style={{ position: 'absolute', top: 'var(--spacing-3)', left: 'var(--spacing-3)', right: 'var(--spacing-3)' }}>
+            <Text type="supporting" style={chip}>{mode === 'product' ? '제품 촬영' : '얼굴·동작 분석'}</Text>
+            <Text id="stage-resolution" style={chip} role="status" aria-label="인식 상태" aria-live="polite">{mode === 'completed' ? '동작 관찰 완료' : photoFrozen ? '촬영 사진 확인 중' : status === 'loading' ? '카메라 연결 중' : status !== 'active' ? '카메라 꺼짐' : mode !== 'motion' ? '카메라 사용 중' : ({ loading: '인식 준비 중', scanning: '얼굴 스캔 중', ready: '자동 시작 준비 중', recovering: '인식 복구 대기', tracking: '제품을 바르세요', error: '분석 재시도 필요' }[analysis.phase] || '카메라 사용 중')}</Text>
           </HStack>
         </VStack>
         <Text>{mode === 'product' ? '선크림 라벨이 중앙 가이드 안에 들어오도록 들고 촬영해 주세요.' : mode === 'measurement' ? '선크림을 내려놓고 얼굴과 양쪽 눈을 정면에 맞춰 주세요.' : mode === 'guide' ? '안내량을 확인하고 준비되면 같은 화면에서 도포 스캔을 시작하세요.' : mode === 'completed' ? '촬영을 마쳤습니다. 카메라는 꺼졌고 기록과 알림을 확인할 수 있습니다.' : '정면 얼굴을 2초간 유지하면 손으로 펴 바르는 동작 관찰을 자동 시작합니다.'}</Text>

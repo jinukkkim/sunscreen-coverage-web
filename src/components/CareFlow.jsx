@@ -6,7 +6,7 @@ import { Section } from '@astryxdesign/core/Section';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
-import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Stepper, Step } from '@astryxdesign/core/Stepper';
 import ProductSetup from './ProductSetup.jsx';
 import FaceMeasurement from './FaceMeasurement.jsx';
 import RecognitionPanel from './RecognitionPanel.jsx';
@@ -68,12 +68,9 @@ export default function CareFlow({ model }) {
       <Heading level={1}>내 선크림부터 오늘의 알림까지</Heading>
       <Text>내 제품을 등록하고, 얼굴 크기에 따른 참고량을 확인한 뒤 펴 바르는 동작을 스캔하세요.</Text>
     </VStack>
-    <HStack as="ol" gap={3} wrap="wrap" aria-label="선케어 단계" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-      {steps.map((label, index) => <VStack as="li" key={label} aria-current={index === step ? 'step' : undefined}>
-        <Text weight={index === step ? 'bold' : 'regular'} color={index === step ? 'primary' : 'secondary'}>{index + 1}. {label}{index < step ? index === 0 && skippedProduct ? ' · 건너뜀' : ' · 완료' : ''}</Text>
-      </VStack>)}
-    </HStack>
-    <ProgressBar label="선케어 단계 진행" value={step * 25} isLabelHidden />
+    <Stepper activeStep={step} orientation="horizontal" label="선케어 단계">
+      {steps.map((label, index) => <Step key={label} step={index} label={label} description={index === 0 && skippedProduct && step > 0 ? '건너뜀' : undefined} />)}
+    </Stepper>
     <h2 ref={heading} tabIndex={-1} style={{ font: 'inherit', fontWeight: 'bold', margin: 0 }}>{step + 1} / 5 · {steps[step]}</h2>
     <Grid columns={{ minWidth: 300, max: 2 }} gap={4} align="start">
     <Camera video={video} photoFrozen={step === 0 && productFrozen} mode={['product', 'measurement', 'guide', 'motion', 'completed'][step]} onActiveChange={setCameraActive} onAnalysisChange={handleAnalysis} />
