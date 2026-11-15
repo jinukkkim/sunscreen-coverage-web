@@ -52,7 +52,7 @@
 
 ## PR #18: 최신 main 충돌 통합
 - Merge source: origin/main ca41654. Preserve existing team commits as the merge parent; no rebase, force push, or main-branch merge.
-- Keep main's SunGuard theme/header/footer/FAQ, KMA-only current-period UV and horizontal timeline, accumulated regional timing, triangular mesh fill, large numbers, adjustable finger joint length, and automatic motion after two stable seconds.
+- Keep main's SUNFIT theme/header/footer/FAQ, KMA-only current-period UV and horizontal timeline, accumulated regional timing, triangular mesh fill, large numbers, adjustable finger joint length, and automatic motion after two stable seconds.
 - Retain this branch's explicit product result/next/skip, product snapshot pause/resume, local measurement, fixed video and single hardware stream.
 - Final observation image composites the video and mesh in memory before tracks stop. Clear the live analysis layer after compositing. No camera image is saved to storage.
 - Update face-photo FAQ to distinguish local face analysis from consented product-crop transmission.

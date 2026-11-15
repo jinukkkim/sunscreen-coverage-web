@@ -58,7 +58,7 @@ test('local vision models run on a synthetic stream and camera stop releases it'
   expect(errors).toEqual([]);
 });
 
-test('face measurement opens inside the main SunGuard screen', async ({ page }) => {
+test('face measurement opens inside the main SUNFIT screen', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '다음 단계로', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);

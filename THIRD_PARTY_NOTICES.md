@@ -13,4 +13,4 @@ Official unmodified model assets are pinned to float16/1. URLs and SHA-256 are r
 - Face Landmarker: [Face Mesh V2 model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf), Apache-2.0.
 - Hand Landmarker: [Hand Tracking model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Hand%20Tracking%20%28Lite_Full%29%20with%20Fairness%20Oct%202021.pdf), Apache-2.0.
 
-The generated `/vision/LICENSE` and `/vision/NOTICE.md` accompany the runtime/model assets in the built site. These licenses do not change the MIT license or SunGuard contributors copyright of this project.
+The generated `/vision/LICENSE` and `/vision/NOTICE.md` accompany the runtime/model assets in the built site. These licenses do not change the MIT license or SUNFIT contributors copyright of this project.

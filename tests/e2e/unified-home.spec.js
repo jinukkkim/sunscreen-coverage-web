@@ -80,7 +80,7 @@ test('compact home preserves the team shell and camera status on mobile and desk
   await page.goto('/');
   await expect(page.locator('.hero')).toHaveCount(0);
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'SunGuard 처음으로', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'SUNFIT 처음으로', exact: true })).toBeVisible();
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
