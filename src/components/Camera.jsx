@@ -79,17 +79,39 @@ function FaceOverlay({ analysis, video }) {
   return <canvas ref={canvas} aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
 }
 
-export default function Camera({ onAnalysisChange }) {
-  const video = useRef(null), session = useRef(null), vision = useRef(null);
+export default function Camera({ onAnalysisChange, video, mode = 'motion', onActiveChange, photoFrozen = false }) {
+  const session = useRef(null), vision = useRef(null);
   const request = useRef(0), alive = useRef(true), onChange = useRef(onAnalysisChange);
   onChange.current = onAnalysisChange;
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState(emptyAnalysis);
 
+  useEffect(() => { onActiveChange?.(status === 'active'); }, [status, onActiveChange]);
+  useEffect(() => {
+    if (status !== 'active') return;
+    if (photoFrozen) { video.current.pause(); return; }
+    if (!video.current.paused) return;
+    const token = request.current;
+    void video.current.play().catch(cause => {
+      if (!alive.current || token !== request.current || cause.name === 'AbortError') return;
+      stop(); setError('실시간 미리보기를 다시 시작하지 못했습니다. 카메라를 다시 켜 주세요.');
+    });
+  }, [photoFrozen, status, video]);
+  useEffect(() => {
+    if (mode === 'completed') { stop(); return; }
+    if (mode === 'motion' && status === 'active') analyze();
+    else { vision.current?.stop(); setAnalysis(emptyAnalysis); onChange.current?.(emptyAnalysis); }
+  }, [mode, status]);
+
   useEffect(() => {
     alive.current = true;
+    const hide = () => { if (document.hidden) stop(); };
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', stop);
     return () => {
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', stop);
       alive.current = false; request.current++;
       vision.current?.stop(); session.current?.stop();
     };
@@ -124,7 +146,7 @@ export default function Camera({ onAnalysisChange }) {
     setStatus('loading');
     try {
       if (await session.current.start() && token === request.current) {
-        setStatus('active'); analyze();
+        setStatus('active');
       }
     } catch (cause) {
       if (token !== request.current) return;
@@ -138,32 +160,34 @@ export default function Camera({ onAnalysisChange }) {
   return (
     <Section padding={4}>
       <VStack gap={3}>
-        <Heading level={2}>얼굴 스캔과 동작 관찰</Heading>
-        <HStack as="ol" wrap="wrap" gap={4} aria-label="사용 순서" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        <Heading level={2}>선케어 카메라</Heading>
+        <VStack style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
+          <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: mode === 'product' ? 'none' : 'scaleX(-1)' }} />
+          <FaceOverlay analysis={analysis} video={video} />
+          {mode === 'product' && <VStack aria-hidden="true" style={{ position: 'absolute', left: '25%', top: '10%', width: '50%', height: '80%', border: 'medium dashed var(--color-text-primary)', borderRadius: 'var(--radius-container)', pointerEvents: 'none' }} />}
+          {mode === 'motion' && status === 'active' && analysis.phase !== 'completed' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
+          {status !== 'active' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
+        </VStack>
+        <Text>{mode === 'product' ? '선크림 라벨이 중앙 가이드 안에 들어오도록 들고 촬영해 주세요.' : mode === 'measurement' ? '선크림을 내려놓고 얼굴과 양쪽 눈을 정면에 맞춰 주세요.' : mode === 'guide' ? '안내량을 확인하고 준비되면 같은 화면에서 도포 스캔을 시작하세요.' : mode === 'completed' ? '촬영을 마쳤습니다. 카메라는 꺼졌고 기록과 알림을 확인할 수 있습니다.' : '얼굴 부위를 확인한 뒤 손으로 펴 바르는 동작을 관찰합니다.'}</Text>
+        {mode === 'motion' && <HStack as="ol" wrap="wrap" gap={4} aria-label="사용 순서" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           <VStack as="li"><Text type="supporting">1. 얼굴 맞추기</Text></VStack>
           <VStack as="li"><Text type="supporting">2. 부위 확인</Text></VStack>
           <VStack as="li"><Text type="supporting">3. 펴 바르기</Text></VStack>
-        </HStack>
-        <VStack style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
-          <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-          <FaceOverlay analysis={analysis} video={video} />
-          {status === 'active' && analysis.phase !== 'completed' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
-          {status !== 'active' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
-        </VStack>
-        <Text role="status">{status === 'active' ? analysis.reason || '카메라 사용 중' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</Text>
+        </HStack>}
+        <Text role="status">{status === 'active' ? photoFrozen ? '촬영한 선크림 사진을 확인하고 있습니다.' : (mode === 'motion' && analysis.reason) || '카메라 사용 중' : status === 'loading' ? '카메라 연결 중' : '카메라 꺼짐'}</Text>
         {error && <Text role="alert">{error}</Text>}
-        {analysis.phase === 'error' && <Text role="alert">인식 기능을 다시 준비해 주세요. 영상 미리보기는 계속 사용할 수 있습니다.</Text>}
+        {mode === 'motion' && analysis.phase === 'error' && <Text role="alert">인식 기능을 다시 준비해 주세요. 영상 미리보기는 계속 사용할 수 있습니다.</Text>}
         <HStack wrap="wrap" gap={2}>
-          <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle'} />
+          <Button label="카메라 켜기" onClick={start} isDisabled={status !== 'idle' || mode === 'completed'} />
           <Button label={status === 'loading' ? '연결 취소' : '카메라 끄기'} onClick={stop} isDisabled={status === 'idle'} />
-          {status === 'active' && !['error', 'completed'].includes(analysis.phase) && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
-          {status === 'active' && analysis.sessionId && !['error', 'completed'].includes(analysis.phase) && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
-          {status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
-          {status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
+          {mode === 'motion' && status === 'active' && !['error', 'completed'].includes(analysis.phase) && <Button label="부위 확인 후 시작" onClick={() => vision.current?.confirmScan()} isDisabled={analysis.phase !== 'ready'} />}
+          {mode === 'motion' && status === 'active' && analysis.sessionId && !['error', 'completed'].includes(analysis.phase) && <Button label="다시 시작" onClick={() => vision.current?.reset()} />}
+          {mode === 'motion' && status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
+          {mode === 'motion' && status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
-        <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>
-        <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>
-        <Text type="supporting">영상과 특징점은 브라우저 안에서만 분석하며 저장하거나 외부 서버로 전송하지 않습니다.</Text>
+        {mode === 'motion' && <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>}
+        {mode === 'motion' && <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>}
+        <Text type="supporting">제품 단계에서 동의 후 촬영한 가이드 영역만 분석 서버로 보냅니다. 얼굴 측정·스캔 영상과 특징점은 기기 안에서만 처리합니다.</Text>
       </VStack>
     </Section>
   );

@@ -1,9 +1,7 @@
-import React, { useCallback, useRef, useState } from 'react';
-import Camera from './Camera.jsx';
+import React from 'react';
 import { REGIONS } from '../lib/face-regions.js';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
-import { Grid } from '@astryxdesign/core/Grid';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Divider } from '@astryxdesign/core/Divider';
@@ -15,20 +13,8 @@ const phaseLabels = {
 };
 const statusLabels = { pending: '아직 감지되지 않음', observing: '동작 관찰 중', detected: '도포 동작 감지' };
 
-export default function RecognitionPanel({ onComplete }) {
-  const [analysis, setAnalysis] = useState({ phase: 'stopped', regions: [], detectedCount: 0, progress: 0 });
-  const completedSession = useRef(null);
-  const handleAnalysis = useCallback(update => {
-    setAnalysis(update);
-    if (update.phase === 'completed' && update.progress === 100 && update.detectedCount === REGIONS.length && update.sessionId && completedSession.current !== update.sessionId) {
-      completedSession.current = update.sessionId;
-      onComplete(update);
-    }
-  }, [onComplete]);
-
+export default function RecognitionPanel({ analysis }) {
   return (
-    <Grid columns={{ minWidth: 300, max: 2 }} gap={4}>
-      <Camera onAnalysisChange={handleAnalysis} />
       <VStack as="section" gap={3} padding={4}>
         <Heading level={2}>부위별 도포 동작</Heading>
         <Text type="label">{phaseLabels[analysis.phase]}</Text>
@@ -53,6 +39,5 @@ export default function RecognitionPanel({ onComplete }) {
         <Text type="supporting">5구역을 완료하면 완료 시각을 자동 기록하고 UV별 재도포 알림을 켭니다. 위치와 기기 알림은 허용한 경우에만 사용합니다.</Text>
         <Text type="supporting">관찰 범위는 정면 5구역입니다. 눈가·귀·목 등은 이번 관찰에 포함되지 않습니다.</Text>
       </VStack>
-    </Grid>
   );
 }
