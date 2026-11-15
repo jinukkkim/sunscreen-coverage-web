@@ -24,19 +24,23 @@ test('one KMA query updates current UV, reminders and the daily timeline togethe
   await expect(page.getByText(/생활안전지도|VWorld/)).toHaveCount(0);
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-  await expect(page.getByText('현재 시간대 자외선지수: 7', { exact: true })).toBeVisible();
-  await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
+  const gauge = page.getByRole('meter', { name: '현재 시간대 자외선지수' });
+  await expect(gauge).toHaveAttribute('aria-valuenow', '7');
+  const details = page.getByLabel('예보 정보');
+  await expect(details.getByText('서울특별시 인근 지점 · 0.2km', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '높음 · 80분마다 덧바르기', exact: true })).toBeVisible();
   await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('10:20 · 다음 재도포', { exact: true })).toBeVisible();
   expect(queries).toBe(1);
   expect(legacyQueries).toBe(0);
   value = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
-  await expect(page.getByText('현재 시간대 자외선지수: 0', { exact: true })).toBeVisible();
-  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
+  await expect(gauge).toHaveAttribute('aria-valuenow', '0');
+  await expect(page.getByRole('heading', { name: '낮음 · 재도포 알림 대기', exact: true })).toBeVisible();
   await page.screenshot({ path: '.pr-review/kma-uv-desktop.png', fullPage: true });
   await page.clock.fastForward(61 * 60000);
-  await expect(page.getByText('현재 시간대 자외선지수: 0', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('적용 주기: 120분', { exact: true })).toBeVisible();
+  await expect(gauge).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '현재 시간대 예보를 확인하지 못했어요' })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('11:00 · 다음 재도포', { exact: true })).toBeVisible();
 });
 
 test('location denial does not request KMA or invent a current UV value', async ({ page }) => {
@@ -49,5 +53,5 @@ test('location denial does not request KMA or invent a current UV value', async 
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('위치 권한이 거부되었습니다.', { exact: true })).toBeVisible();
   expect(queries).toBe(0);
-  await expect(page.getByText('적용 주기: 120분', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '현재 시간대 예보를 확인하지 못했어요', exact: true })).toBeVisible();
 });

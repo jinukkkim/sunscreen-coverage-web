@@ -2,13 +2,23 @@ import { uvAt } from './reapplication.js';
 
 export const KMA_UV_SOURCE_URL = 'https://www.data.go.kr/data/15085288/openapi.do';
 
+// KMA UV index bands (생활기상지수 단계).
+export function uvLevel(value) {
+  if (!Number.isFinite(value) || value < 0) return null;
+  if (value < 3) return '낮음';
+  if (value < 6) return '보통';
+  if (value < 8) return '높음';
+  if (value < 11) return '매우 높음';
+  return '위험';
+}
+
 // Both the current-period display and reminders select the same valid KMA slot.
 export function currentUvDetails(forecast, now = Date.now()) {
   const slot = uvAt(forecast, now, now);
   if (!slot || !forecast.location?.name) return null;
   return {
     source: '기상청', sourceUrl: KMA_UV_SOURCE_URL,
-    region: { name: forecast.location.name }, value: slot.value,
+    region: { name: forecast.location.name, distanceKm: forecast.location.distanceKm ?? null }, value: slot.value, level: uvLevel(slot.value),
     validFrom: slot.validFrom, validTo: slot.validTo,
     publishedAt: forecast.publishedAt, fetchedAt: forecast.fetchedAt,
   };

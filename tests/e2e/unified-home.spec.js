@@ -120,11 +120,12 @@ test('compact home preserves the team shell and camera status on mobile and desk
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    const stage = await page.locator('#camera-stage').boundingBox();
-    const state = await page.getByLabel('인식 상태', { exact: true }).boundingBox();
-    expect(state.x).toBeGreaterThan(stage.x + stage.width / 2);
-    expect(state.y).toBeGreaterThanOrEqual(stage.y);
-    expect(state.y + state.height).toBeLessThan(stage.y + stage.height / 3);
+    // Read both boxes in one frame: the step indicator reflows after a resize and would shift them between calls.
+    await expect.poll(() => page.evaluate(() => {
+      const stage = document.querySelector('#camera-stage').getBoundingClientRect();
+      const state = document.querySelector('[aria-label="인식 상태"]').getBoundingClientRect();
+      return state.x > stage.x + stage.width / 2 && state.y >= stage.y && state.y + state.height < stage.y + stage.height / 3;
+    })).toBe(true);
     await expect(page.locator('.motion-progress').getByLabel('인식 상태', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.pr-review/integrated-home-${width}.png`, fullPage: true });

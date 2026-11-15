@@ -64,7 +64,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await enterScan(page);
   await page.getByLabel('오늘 알림 종료 시각 (한국 시간)').fill('18:30');
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-  await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '높음 · 80분마다 덧바르기', exact: true })).toBeVisible();
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
   await expect.poll(async () => Number(await overall.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
@@ -118,8 +118,9 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
   uv = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인', exact: true }).click();
-  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
-  await expect(page.getByText(/동작 완료 자동 기록/).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: '낮음 · 재도포 알림 대기', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records[0].source)).toBe('motion');
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/ · 도포 완료$/)).toHaveCount(1);
   await expect(page.getByRole('button', { name: /기록 취소$/ })).toHaveCount(0);
   await page.getByRole('button', { name: '다시 바르기', exact: true }).click();
   await expect(page.getByRole('heading', { name: '오늘의 선케어를 이어가세요', exact: true })).toHaveCount(0);

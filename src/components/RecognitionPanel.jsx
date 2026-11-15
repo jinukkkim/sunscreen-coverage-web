@@ -15,7 +15,7 @@ export default function RecognitionPanel({ analysis }) {
         <Heading level={2}>부위별 도포 동작</Heading>
         <HStack hAlign="between" vAlign="center" gap={3}>
           <Text type="label">전체 동작 진행률</Text>
-          <Text className="motion-total-value" weight="bold" hasTabularNumbers aria-hidden="true">{analysis.progress}%</Text>
+          <Text className="motion-total-value" size="4xl" weight="bold" hasTabularNumbers aria-hidden="true">{analysis.progress}%</Text>
         </HStack>
         <ProgressBar label="전체 동작 진행률" value={analysis.progress} isLabelHidden variant={analysis.progress === 100 ? 'success' : 'accent'} />
         <Text role="status">5구역 중 {analysis.detectedCount}구역에서 동작 감지</Text>
