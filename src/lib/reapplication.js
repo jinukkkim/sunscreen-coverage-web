@@ -129,11 +129,15 @@ export function timeline(state, now, forecast = null) {
 // future advice on missed applications as if they had actually happened.
 export function upcomingTimeline(state, now, forecast = null) {
   const rows = [];
-  let plan = nextDue(state, now, forecast);
+  const last = latestRecord(state);
+  const preview = !last || dayKey(last.at) !== dayKey(now);
+  // Before today's first record, show a hypothetical schedule anchored to now.
+  // This never creates an application or an eligible reminder.
+  let plan = preview ? nextPlan(now, now, forecast, now, dailyEnd(state, now)) : nextDue(state, now, forecast);
   while (plan) {
     const immediate = rows.length === 0 && plan.at <= now;
     const at = Math.max(now, plan.at);
-    rows.push({ ...plan, at, id: `upcoming-${at}`, immediate,
+    rows.push({ ...plan, at, id: `upcoming-${at}`, immediate, preview,
       label: rows.length === 0 ? '다음 재도포' : '이때 다시 바르세요', conditional: rows.length > 0 });
     plan = nextPlan(at, at, forecast, now, dailyEnd(state, now));
   }

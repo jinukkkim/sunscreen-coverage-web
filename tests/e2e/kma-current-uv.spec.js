@@ -1,5 +1,42 @@
 import { test, expect } from '@playwright/test';
 
+test('latest API UV rebuilds a current-time preview and switches to the real record after application', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-14T09:00:00+09:00') });
+  await page.addInitScript(() => Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition(success) {
+    success({ coords: { latitude: 37.567, longitude: 126.978, accuracy: 30 }, timestamp: Date.now() });
+  } } }));
+  let value = 7;
+  await page.route('**/api/uv?**', async route => route.fulfill({ json: {
+    source: '기상청', location: { name: '서울특별시', distanceKm: 0.2 },
+    publishedAt: '2026-11-14T00:00:00.000Z', fetchedAt: new Date(await page.evaluate(() => Date.now())).toISOString(),
+    slots: [{ value, validFrom: '2026-11-14T00:00:00.000Z', validTo: '2026-11-14T12:00:00.000Z' }],
+  } }));
+  await page.goto('/');
+  await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
+  const dayline = page.getByRole('list', { name: '하루 도포 타임라인' });
+  await expect(dayline.getByText('10:20 · 다음 재도포', { exact: true })).toBeVisible();
+  await expect(page.getByText('UV 7 · 80분 주기 · 지금 바른다면', { exact: true })).toBeVisible();
+  await expect(page.getByText(/지금 처음 바른다면/)).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records)).toEqual([]);
+  await page.getByRole('button', { name: '오늘 야외활동 알림 켜기', exact: true }).click();
+  // Date changes without waiting for the hook's 10-second timer: the API result
+  // must immediately update the current-time basis as well as the UV value.
+  await page.clock.setSystemTime(new Date('2026-11-14T09:10:00+09:00'));
+  value = 8;
+  await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
+  await expect(dayline.getByText('10:10 · 다음 재도포', { exact: true })).toBeVisible();
+  await expect(dayline.getByText('10:20 · 다음 재도포', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('재도포할 시간입니다', { exact: true })).toHaveCount(0);
+  await page.getByRole('region', { name: '앞으로 바를 시각' }).screenshot({ path: '.pr-review/uv-now-preview.png' });
+  await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
+  await page.clock.setSystemTime(new Date('2026-11-14T09:20:00+09:00'));
+  value = 7;
+  await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
+  await expect(dayline.getByText('10:30 · 다음 재도포', { exact: true })).toBeVisible();
+  await expect(page.getByText(/지금 처음 바른다면/)).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
+});
+
 test('one KMA query updates current UV, reminders and the daily timeline together', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-11-14T09:00:00+09:00') });
   await page.addInitScript(() => {
