@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { face, regionHand } from '../helpers/landmarks.js';
+import { seedProduct, enterScan, measurementFace } from './helpers/flow.js';
 import { formatTime } from '../../src/lib/reapplication.js';
 
 test('partial motion progresses, completion records once and starts the UV timer', async ({ page }) => {
   test.setTimeout(60000);
+  await seedProduct(page);
+  await page.addInitScript(points => { window.measurementPoints = points; }, measurementFace());
   await page.clock.install({ time: new Date('2026-11-14T09:00:00+09:00') });
   const frames = ['forehead', 'nose', 'leftCheek', 'rightCheek', 'chin'].flatMap((id, index) =>
     Array.from({ length: index === 0 ? 40 : 30 }, (_, frame) => regionHand(id, frame * 100)));
@@ -23,19 +25,21 @@ test('partial motion progresses, completion records once and starts the UV timer
         const stop = track.stop.bind(track);
         track.stop = () => { clearInterval(timer); stop(); };
       }
+      window.motionFixture.stream = stream;
       return stream;
     };
     Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition(success) {
       window.motionFixture.geoCalls++;
       success({ coords: { latitude: 37.5665, longitude: 126.978, accuracy: 30 }, timestamp: Date.now() });
     } } });
-  }, { face: face(), frames, connections: FaceLandmarker.FACE_LANDMARKS_TESSELATION });
+  }, { face: face(), frames });
   // Replace only the lazy SDK chunk with synthetic landmarks. The actual app,
   // vision-session, rubbing tracker, progress UI and persistence run unchanged.
   await page.route('**/assets/vision_bundle-*.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
-      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: window.motionFixture.connections, createFromOptions: async () => ({
+      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}, {start: 348, end: 347}, {start: 347, end: 345}], createFromOptions: async () => ({
+        detect: () => ({faceLandmarks: [window.measurementPoints]}),
         detectForVideo: () => ({faceLandmarks: window.motionFixture.faceVisible === false ? [] : [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
       })};
@@ -57,10 +61,10 @@ test('partial motion progresses, completion records once and starts the UV timer
   } }));
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
+  await enterScan(page);
+  await page.getByLabel('오늘 알림 종료 시각 (한국 시간)').fill('18:30');
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
-  await page.locator('#motion').getByRole('button', { name: '카메라 켜기', exact: true }).click();
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
   await expect.poll(async () => Number(await overall.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
@@ -71,44 +75,42 @@ test('partial motion progresses, completion records once and starts the UV timer
   const hasOverlay = () => overlay.evaluate(canvas =>
     canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0));
   await expect.poll(hasOverlay).toBe(true);
-  const creamPixels = () => overlay.evaluate(canvas => {
-    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    let count = 0;
-    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] > pixels[i + 1] + 1 && pixels[i + 1] > pixels[i + 2] + 1 && pixels[i + 3] > 20) count++;
-    return count;
-  });
-  const partialCream = await creamPixels();
   const partialProgress = await overall.getAttribute('aria-valuenow');
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
-  await expect(page.getByText('인식 복구 대기', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('인식 복구 대기');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
+  await expect(page.getByText('제품을 바르세요', { exact: true })).toBeVisible();
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  // Sustained loss repeats the stable-face countdown and retains progress.
+  // Sustained loss requires another stable countdown but keeps the same accumulated progress.
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
   await expect(page.getByText('얼굴 스캔 중', { exact: true })).toBeVisible({ timeout: 6000 });
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
+  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   const before = await page.evaluate(() => Date.now());
   await page.evaluate(() => { window.motionFixture.limit = Infinity; });
-  await expect(overall).toHaveAttribute('aria-valuenow', '100', { timeout: 35000 });
+  await expect(page.getByRole('heading', { name: '오늘의 선케어를 이어가세요', exact: true })).toBeVisible({ timeout: 35000 });
+  await expect(overall).toHaveCount(0);
+  expect(await page.evaluate(() => window.motionFixture.stream.getTracks().every(t => t.readyState === 'ended'))).toBe(true);
   await expect(page.getByText('동작 완료 시각을 기록했습니다', { exact: true })).toBeVisible();
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')));
   expect(stored.records).toHaveLength(1);
   expect(stored.records[0].source).toBe('motion');
   expect(stored.records[0].at).toBeGreaterThanOrEqual(before);
   expect(stored.enabled).toBe(true);
+  expect(stored.endTime).toBe('18:30');
   await expect(page.getByRole('heading', { name: formatTime(stored.records[0].at + 80 * 60000), exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.motionFixture.geoCalls)).toBe(2);
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
-  await expect.poll(hasOverlay).toBe(true);
-  await expect.poll(creamPixels).toBeGreaterThan(partialCream);
-  expect(await page.locator('#motion video').evaluate(video => video.paused)).toBe(true);
+  await expect.poll(hasOverlay).toBe(false);
+  await expect(page.getByLabel('카메라 미리보기')).toBeVisible();
+  await expect(page.getByLabel('완료한 도포 동작 화면')).toBeVisible();
+  expect(await page.getByLabel('완료한 도포 동작 화면').evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((v,i) => i % 4 === 3 && v > 0))).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();
@@ -117,13 +119,11 @@ test('partial motion progresses, completion records once and starts the UV timer
   uv = 0;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인', exact: true }).click();
   await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '새 도포 시작', exact: true }).click();
-  await expect(overall).toHaveAttribute('aria-valuenow', '0');
-  await expect.poll(() => page.locator('#motion video').evaluate(video => video.paused)).toBe(false);
-  await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
-  await expect.poll(hasOverlay).toBe(false);
-  await page.reload();
   await expect(page.getByText(/동작 완료 자동 기록/).first()).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(1);
+  await page.getByRole('button', { name: `${formatTime(stored.records[0].at)} 기록 취소`, exact: true }).click();
+  await expect(page.getByRole('heading', { name: '오늘의 선케어를 이어가세요', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '다음 단계로', exact: true })).toBeEnabled();
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sunguard.care.v1')).records.length)).toBe(0);
   expect(errors).toEqual([]);
 });
