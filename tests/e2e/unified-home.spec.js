@@ -137,6 +137,8 @@ test('phone pins the live camera above step actions while the desktop layout sta
   await syntheticCamera(page); await page.setViewportSize({ width: 375, height: 667 }); await page.goto('/');
   const section = () => page.evaluate(() => getComputedStyle(document.querySelector('#camera-stage').closest('section')).position);
   expect(await section()).toBe('static');
+  // The collapsed phone stepper must not repeat the step heading below its track.
+  await expect(page.locator('.astryx-stepper-summary')).toHaveCount(0);
   await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('카메라 사용 중');
   const bothVisible = name => page.evaluate(name => {
