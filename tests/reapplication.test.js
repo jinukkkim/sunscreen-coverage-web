@@ -11,7 +11,7 @@ test('upcoming guidance uses future UV bands and contains no past records', () =
   const slots = [[3, '09:00', '10:00'], [8, '10:00', '12:00'], [0, '12:00', '21:00']].map(([value, start, end]) => ({ value, validFrom: new Date(at(start)).toISOString(), validTo: new Date(at(end)).toISOString() }));
   const forecast = { fetchedAt: new Date(at('09:00')).toISOString(), slots };
   const rows = upcomingTimeline(started(), at('09:00'), forecast);
-  assert.deepEqual(rows.map(row => [row.at, row.minutes]), [[at('10:00'), 60], [at('11:00'), 60]]);
+  assert.deepEqual(rows.map(row => [row.at, row.minutes]), ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'].map(time => [at(time), 60]));
   assert.equal(rows[0].conditional, false);
   assert.equal(rows[1].conditional, true);
   assert.equal(rows.some(row => row.at < at('09:00')), false);
@@ -115,10 +115,10 @@ test('UV refresh moves an unrecorded preview but never postpones a real applicat
   assert.equal(recorded.records.length, 1);
 });
 
-test('current-time previews pause at low UV, resume at a future boundary and handle expiry and day end', () => {
+test('current-time previews start at a future UV boundary, repeat that interval and handle expiry and day end', () => {
   const slots = [[0, '09:00', '10:00'], [8, '10:00', '12:00'], [0, '12:00', '23:59']].map(([value, from, to]) => ({ value, validFrom: new Date(at(from)).toISOString(), validTo: new Date(at(to)).toISOString() }));
   const rows = upcomingTimeline(emptyCare(), at('09:00'), forecastOf(0, at('09:00'), slots));
-  assert.deepEqual(rows.map(row => row.at), [at('10:00'), at('11:00')]);
+  assert.deepEqual(rows.map(row => row.at), ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'].map(at));
   assert.equal(rows[0].uv, 8);
   assert.deepEqual(upcomingTimeline(emptyCare(), at('09:00'), forecastOf(0)), []);
   const stale = upcomingTimeline(emptyCare(), at('10:01'), forecastOf(8));

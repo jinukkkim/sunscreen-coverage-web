@@ -134,12 +134,12 @@ export function upcomingTimeline(state, now, forecast = null) {
   // Before today's first record, show a hypothetical schedule anchored to now.
   // This never creates an application or an eligible reminder.
   let plan = preview ? nextPlan(now, now, forecast, now, dailyEnd(state, now)) : nextDue(state, now, forecast);
-  while (plan) {
-    const immediate = rows.length === 0 && plan.at <= now;
-    const at = Math.max(now, plan.at);
-    rows.push({ ...plan, at, id: `upcoming-${at}`, immediate, preview,
-      label: rows.length === 0 ? '다음 재도포' : '이때 다시 바르세요', conditional: rows.length > 0 });
-    plan = nextPlan(at, at, forecast, now, dailyEnd(state, now));
+  if (!plan) return rows;
+  // Repeat the measured UV interval until today's end time.
+  for (let at = Math.max(now, plan.at), end = dailyEnd(state, now); at <= end; at += plan.minutes * 60000) {
+    const first = rows.length === 0;
+    rows.push({ ...plan, at, id: `upcoming-${at}`, immediate: first && plan.at <= now, preview,
+      label: first ? '다음 재도포' : '이때 다시 바르세요', conditional: !first });
   }
   return rows;
 }
