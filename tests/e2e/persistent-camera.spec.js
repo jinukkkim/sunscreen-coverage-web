@@ -27,8 +27,12 @@ test('one camera remains through product capture, measurement, guide and motion'
   await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
   await expect(page.getByRole('button', { name: '선크림 촬영하고 인식', exact: true })).toBeEnabled();
   await page.evaluate(() => { window.originalVideo = document.querySelector('video'); });
-  const originalBox = await page.getByLabel('카메라 미리보기').boundingBox();
-  const originalScroll = await page.evaluate(() => scrollY);
+  // Read the rectangle and scroll offset in one frame while focus scrolling may be active.
+  const documentBox = () => page.getByLabel('카메라 미리보기').evaluate(video => {
+    const box = video.getBoundingClientRect();
+    return { x: box.x + scrollX, y: box.y + scrollY, width: box.width };
+  });
+  const originalBox = await documentBox();
   await page.getByRole('button', { name: '선크림 촬영하고 인식', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('사진 전송에 동의');
   expect(requests).toBe(0);
@@ -51,9 +55,9 @@ test('one camera remains through product capture, measurement, guide and motion'
   expect(await page.evaluate(() => window.originalVideo === document.querySelector('video'))).toBe(true);
   expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
   expect(requests).toBe(1);
-  const motionBox = await page.getByLabel('카메라 미리보기').boundingBox();
+  const motionBox = await documentBox();
   expect(motionBox.x).toBeCloseTo(originalBox.x, 0);
-  expect(motionBox.y + await page.evaluate(() => scrollY)).toBeCloseTo(originalBox.y + originalScroll, 0);
+  expect(motionBox.y).toBeCloseTo(originalBox.y, 0);
   expect(motionBox.width).toBeCloseTo(originalBox.width, 0);
   await page.getByRole('button', { name: '용량 안내로 돌아가기', exact: true }).click();
   expect(await page.evaluate(() => window.cameraStreams[0].getTracks().every(t => t.readyState === 'live'))).toBe(true);

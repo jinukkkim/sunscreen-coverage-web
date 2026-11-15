@@ -8,7 +8,7 @@ export default function KmaUV({ forecast, now }) {
   const data = currentUvDetails(forecast, now);
   return <VStack gap={3} aria-live="polite">
     <Heading level={3}>현재 지역 자외선지수</Heading>
-    <Text type="supporting">기상청 생활기상지수 조회서비스의 현재 시간대 예보입니다. 위의 UV 표시·재도포 알림·하루 타임라인에 같은 값을 적용합니다.</Text>
+    <Text type="supporting">기상청 생활기상지수 조회서비스의 현재 시간대 예보입니다. 재도포 알림과 하루 타임라인에 같은 값을 적용합니다.</Text>
     {data ? <VStack gap={2}>
       <Text>인근 기상청 지점: {data.region.name}</Text>
       <Text>현재 시간대 자외선지수: {data.value}</Text>

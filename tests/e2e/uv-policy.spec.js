@@ -29,7 +29,6 @@ for (const [uv, time, label] of [[0, '알림 대기', '알림 대기'], [2, '알
     await page.getByLabel('오늘 이전에 바른 시각 (한국 시간)').fill('08:00');
     await page.getByRole('button', { name: '입력한 시각 저장' }).click();
     await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-    await expect(page.getByRole('heading', { name: time, exact: true })).toBeVisible();
     await expect(page.getByText(`적용 주기: ${label}${uv < 3 ? ' (선택 도포)' : ''}`, { exact: true })).toBeVisible();
     if (uv < 3) {
       await page.getByRole('button', { name: '오늘 야외활동 알림 켜기' }).click();
@@ -51,17 +50,16 @@ test('a new UV value immediately recalculates the timer and alert text', async (
   await page.getByLabel('오늘 이전에 바른 시각 (한국 시간)').fill('08:00');
   await page.getByRole('button', { name: '입력한 시각 저장' }).click();
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-  await expect(page.getByRole('heading', { name: '10:30', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('10:30 · 다음 재도포', { exact: true })).toBeVisible();
   uv = 7;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
-  await expect(page.getByRole('heading', { name: '09:20', exact: true })).toBeVisible();
   await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:20 · 다음 재도포', { exact: true })).toBeVisible();
   uv = 2;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
-  await expect(page.getByRole('heading', { name: '알림 대기', exact: true })).toBeVisible();
+  await expect(page.getByText('적용 주기: 알림 대기 (선택 도포)', { exact: true })).toBeVisible();
   uv = 8;
   await page.getByRole('button', { name: '현재 위치·예보 다시 확인' }).click();
-  await expect(page.getByRole('heading', { name: '09:00', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('09:00 · 다음 재도포', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '오늘 야외활동 알림 켜기' }).click();
   await expect(page.getByText(/UV 8 기준 60분 알림 시각/)).toBeVisible();
   await page.screenshot({ path: '.pr-review/uv-policy.png', fullPage: true });
@@ -72,12 +70,12 @@ test('automatic UV refresh uses the last position and updates the active interva
   const requests = await setup(page, () => uv);
   await page.getByRole('button', { name: '지금 발랐어요', exact: true }).click();
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
-  await expect(page.getByRole('heading', { name: '11:30', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('11:30 · 다음 재도포', { exact: true })).toBeVisible();
   uv = 8;
   // The app checks every 10 seconds, so cross the first tick after 30 minutes.
   await page.clock.runFor(30 * 60000 + 10000);
   await expect.poll(requests).toBe(2);
-  await expect(page.getByRole('heading', { name: '10:00', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText('10:00 · 다음 재도포', { exact: true })).toBeVisible();
   await page.clock.runFor(60000);
   expect(await page.evaluate(() => window.geoCalls)).toBe(1);
 });
