@@ -26,6 +26,18 @@ npm run test:e2e
 
 브라우저 테스트는 설치된 Chrome을 사용합니다. Chrome이 없는 환경은 `npx playwright install chromium` 후 `playwright.config.js`의 `channel`을 제거하세요. `npm run preview`는 정적 화면 확인 전용이므로 UV API는 제공하지 않습니다.
 
+## Vercel 배포
+
+GitHub의 이 저장소를 Vercel에 Import하고 Production Branch를 `main`으로 설정합니다. 루트 디렉터리는 저장소 루트이며 `vercel.json`이 Vite 빌드(`npm run build`, 출력 `dist`)와 API 경로를 설정합니다. 화면과 `/vision/` 모델은 정적 파일로, `/api/*`는 기존 Express 앱을 재사용하는 `api/index.js` 함수로 제공합니다. Vercel에서 `npm start`를 실행하지 않습니다.
+
+Vercel 프로젝트의 환경 변수에 `KMA_SERVICE_KEY`, `GEMINI_API_KEY`를 서버 전용으로 등록합니다. 필요하면 `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `GEMINI_THINKING`도 등록합니다. `VITE_` 접두사를 붙이거나 `.env`를 업로드하지 않습니다. Production과 Preview에 필요한 값을 각각 설정하고 변경 후 다시 배포하세요. `GET /api/health`의 `uvConfigured`, `recognitionConfigured`로 키 설정 여부를 확인할 수 있습니다.
+
+빌드 전에 고정 모델과 WASM을 준비하므로 빌드 환경에서 모델 다운로드가 가능해야 합니다. 제품 인식의 기본 모델·대체 모델 대기 시간을 위해 함수 실행 한도는 120초로 설정합니다. Vercel Functions의 요청 본문 상한은 4.5MB이므로 로컬 서버의 6MB 한도보다 작습니다. 큰 사진 두 장은 플랫폼에서 413으로 거절될 수 있으며, 현재 메인 화면은 축소한 JPEG 한 장을 전송합니다.
+
+배포 전 `npm test`, `npm run build`, `npm run test:e2e`, `npx astryx doctor --built dist`로 검증합니다. 배포 후 홈, `/face-dose.html`, `/api/health`, `/api/uv/current`와 같은 출처의 `/vision/` 자산, 제품 인식을 확인합니다. UV API 요청 URL에는 좌표가 포함되므로 Vercel 및 연결한 로그 수집기의 요청 URL 보관·마스킹 정책도 확인해야 합니다.
+
+브랜치 변경은 PR로 `main`에 반영하고 팀에서 병합합니다. 저장소 연결 후 `main` 병합은 프로덕션 배포, 다른 브랜치의 PR은 Preview 배포를 생성합니다.
+
 ## 현재 구현 범위
 
 - 제품 등록 → 얼굴 크기 측정 → 용량 안내 → 도포 스캔 → 기록·알림을 하나의 고정 카메라에서 진행합니다. 제품 인식 결과 확인 후 다음 단계로 이동하거나 등록을 건너뛸 수 있습니다. 촬영한 제품 화면은 결과 확인까지 고정하고, 다음 단계에서 같은 스트림을 재생합니다.
