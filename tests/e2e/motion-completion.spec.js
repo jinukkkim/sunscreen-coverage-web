@@ -60,8 +60,8 @@ test('partial motion progresses, completion records once and starts the UV timer
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
   await page.locator('#motion').getByRole('button', { name: '카메라 켜기', exact: true }).click();
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
+  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
   await expect.poll(async () => Number(await overall.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
   expect(Number(await overall.getAttribute('aria-valuenow'))).toBeLessThan(100);
@@ -85,15 +85,13 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByText('동작 관찰 중', { exact: true }).and(page.locator('[data-type="label"]'))).toBeVisible();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  // Sustained loss requires confirmation but keeps the same accumulated progress.
+  // Sustained loss repeats the stable-face countdown and retains progress.
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
   await expect(page.getByText('얼굴 스캔 중', { exact: true })).toBeVisible({ timeout: 6000 });
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
-  await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   const before = await page.evaluate(() => Date.now());

@@ -17,6 +17,8 @@
 
 ## 구현 설계
 
+- [카메라 2초 자동 시작과 화면 정리](superpowers/specs/2026-11-15-camera-auto-start.md)
+
 - [얼굴 스캔 후 부위별 도포 동작 인식](superpowers/specs/2026-11-14-face-first-motion-recognition-design.md)
 - [얼굴 스캔·도포 동작 인식 구현 계획](superpowers/plans/2026-11-14-face-first-motion-recognition.md)
 - [재도포 기록·UV별 알림·하루 타임라인](superpowers/specs/2026-11-14-reapplication.md)

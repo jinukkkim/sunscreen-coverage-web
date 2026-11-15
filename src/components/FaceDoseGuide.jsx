@@ -25,13 +25,13 @@ export default function FaceDoseGuide({ onComplete }) {
     <VStack className="guide-layout section-heading">
       <VStack className="guide-layout">
         <Text as="span" type="inherit" className="eyebrow">YOUR SUNCARE ROUTINE</Text>
-        <Heading level={2}>사용량 확인과 도포 동작 관찰</Heading>
+        <Heading level={1}>사용량 확인과 도포 동작 관찰</Heading>
       </VStack>
       <Text as="p" type="inherit" display="block">한 번 켠 카메라로 사용량을 알아보고,<br />같은 화면에서 고르게 펴 바르는 동작을 확인하세요.</Text>
     </VStack>
     <VStack as="ol" className="guide-layout steps" aria-label="가이드 진행 단계">
       <VStack as="li" className="guide-layout current" id="step-1" aria-current="step">
-        <Text as="span" type="inherit">01</Text> 얼굴 맞추기 <Text as="b" type="inherit">카메라 또는 사진</Text>
+        <Text as="span" type="inherit">01</Text> 얼굴 맞추기 <Text as="b" type="inherit">카메라로 촬영</Text>
       </VStack>
       <VStack as="li" id="step-2" className="guide-layout">
         <Text as="span" type="inherit">02</Text> 면적·사용량 추정 <Text as="b" type="inherit">선택 영역 기준</Text>
@@ -44,18 +44,11 @@ export default function FaceDoseGuide({ onComplete }) {
       <VStack as="section" id="motion" className="guide-layout capture-panel" aria-labelledby="capture-title">
         <VStack className="guide-layout panel-heading">
           <Heading level={3} id="capture-title">얼굴 스캔과 동작 관찰</Heading>
-          <Text as="span" type="inherit" className="status-chip" id="capture-badge">촬영 준비</Text>
-        </VStack>
-        <VStack className="guide-layout input-tabs" role="group" aria-label="입력 방식">
-          <Button label="카메라로 촬영" id="camera-tab" aria-pressed="true">카메라로 촬영</Button>
-          <Button label="사진으로 분석" id="upload-tab" aria-pressed="false">사진으로 분석</Button>
         </VStack>
         <VStack className="guide-layout camera-stage" id="camera-stage">
           <video ref={video} id="video" autoPlay={true} muted={true} playsInline={true} aria-label="카메라 미리보기" hidden={true}>
           </video>
           <FaceOverlay analysis={analysis} video={video} />
-          <canvas id="preview" aria-label="선택한 얼굴과 분석 영역" hidden={true}>
-          </canvas>
           <VStack className="guide-layout stage-empty" id="stage-empty">
             <Text as="span" type="inherit" className="corner tl">
             </Text>
@@ -82,62 +75,41 @@ export default function FaceDoseGuide({ onComplete }) {
             <Text as="span" type="inherit">
               <Text as="i" type="inherit">
               </Text> ON-DEVICE ANALYSIS</Text>
-            <Text as="span" type="inherit" id="stage-resolution">FACE GUIDE</Text>
-          </VStack>
-          <VStack className="guide-layout stage-loading" id="stage-loading" hidden={true}>
-            <Text as="span" type="inherit" className="spinner">
-            </Text>
-            <Text as="strong" type="inherit" id="loading-message">분석 준비 중</Text>
-            <Button label="분석 취소" id="cancel-analysis" className="text-button">분석 취소</Button>
+            <Text as="span" type="inherit" id="stage-resolution" role="status" aria-label="인식 상태" aria-live="polite">카메라 대기</Text>
           </VStack>
         </VStack>
-        <Text as="p" type="inherit" display="block" className="capture-status" id="capture-status" role="status" aria-live="polite">카메라를 켜거나 정면 사진을 선택해 주세요.</Text>
+        <Text as="p" type="inherit" display="block" className="capture-status" id="capture-status" role="status" aria-live="polite">카메라를 켜고 정면 얼굴을 2초간 유지하면 도포 동작 관찰을 자동 시작합니다.</Text>
         <Text as="p" type="inherit" display="block" className="error-box" id="capture-error" role="alert" hidden={true}>
         </Text>
         <VStack className="guide-layout capture-actions">
           <Button label="카메라 켜기" className="button orange" id="start-camera">
             <Text as="span" type="inherit" aria-hidden="true">◉</Text> 카메라 켜기</Button>
           <Button label="사용량 다시 확인" className="button outline" id="analyze-camera" hidden={true} />
-          <Button label="부위 확인 후 시작" variant="primary" id="motion-start" hidden={true} />
           <Button label="다시 시작" id="motion-reset" hidden={true} />
           <Button label="분석 다시 시도" id="motion-retry" hidden={true} />
           <Button label="새 도포 시작" variant="primary" id="motion-new" hidden={true} />
           <Button label="연결 취소" className="button outline" id="cancel-camera" hidden={true} />
           <Button label="카메라 끄기" className="button outline" id="stop-camera" hidden={true} />
-          <Button label="사진 선택" className="button outline" id="select-photo">사진 선택 <Text as="span" type="inherit" aria-hidden="true">↥</Text>
-          </Button>
-          <Button label="다시 분석" className="button outline" id="retry-analysis" hidden={true}>다시 분석</Button>
         </VStack>
-        <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/avif" hidden={true} />
         <Text as="p" type="inherit" display="block" className="privacy-note">
           <Text as="span" type="inherit" aria-hidden="true">◇</Text> 얼굴 사진과 영상은 기기 안에서만 분석해요. 저장하거나 전송하지 않아요.</Text>
+        <Text type="supporting">다른 사람이 사용할 때는 다시 시작으로 진행률을 초기화해 주세요.</Text>
       </VStack>
       <VStack className="guide-layout session-feedback" gap={4}>
         <VStack className="live-dose-summary" padding={4} gap={2}>
           <Text type="supporting">표시 영역의 계산량 · 실험 추정</Text>
           <Heading level={3} id="live-dose-value">얼굴 확인 후 안내</Heading>
+          <Text type="large" id="live-finger-value">정면 얼굴을 맞춰 주세요.</Text>
           <Text type="supporting">실제 도포량이나 개인별 권장량을 확정한 값은 아니에요.</Text>
           <a href="#results">면적·손가락 길이 자세히 보기</a>
         </VStack>
         <RecognitionPanel analysis={analysis} />
       </VStack>
     </VStack>
-    <VStack as="section" id="results" className="guide-layout results-section" aria-labelledby="results-title">
+    <VStack as="section" id="results" className="guide-layout results-section" aria-label="사용량 계산 결과" hidden={true}>
       <VStack className="guide-layout section-heading compact">
-        <VStack className="guide-layout">
-          <Text as="span" type="inherit" className="eyebrow">FROM YOUR FACE TO YOUR FINGERTIP</Text>
-          <Heading level={2} id="results-title">내 얼굴에서, 내 손끝으로.</Heading>
-        </VStack>
         <Button label="처음부터 다시" className="text-button" id="reset" hidden={true}>처음부터 다시 <Text as="span" type="inherit" aria-hidden="true">↻</Text>
         </Button>
-      </VStack>
-      <VStack className="guide-layout result-empty" id="result-empty">
-        <Text as="span" type="inherit" className="empty-sun" aria-hidden="true">✳</Text>
-        <VStack className="guide-layout">
-          <Heading level={3}>얼굴을 분석하면 가이드가 완성돼요.</Heading>
-          <Text as="p" type="inherit" display="block">분석한 영역의 면적, 계산량, 손가락 길이를 순서대로 확인하세요.</Text>
-        </VStack>
-        <Text as="span" type="inherit" className="empty-arrow" aria-hidden="true">↗</Text>
       </VStack>
       <VStack id="result-content" hidden={true} className="guide-layout">
         <VStack className="guide-layout result-grid">

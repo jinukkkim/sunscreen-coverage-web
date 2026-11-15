@@ -52,7 +52,8 @@ test('home guide produces a local result and continues to motion without recordi
   await expect(page).toHaveURL(/\/#motion$/);
   await page.locator('#reset').click();
   await expect(page.locator('#result-content')).toBeHidden();
-  await expect(page.locator('#result-empty')).toBeVisible();
+  await expect(page.locator('#result-empty')).toHaveCount(0);
+  await expect(page.locator('#results')).toBeHidden();
   await expect.poll(() => page.evaluate(() => window.cameraStreams.every(s => s.getTracks().every(t => t.readyState === 'ended')))).toBe(true);
 });
 
@@ -64,9 +65,8 @@ test('one camera provides a dose then starts motion without reopening the stream
   await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
   await expect(page.locator('#result-content')).toBeVisible();
   expect(await page.locator('canvas[aria-hidden="true"]').evaluate(canvas => getComputedStyle(canvas).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
-  await expect(page.getByText('동작 관찰 중', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toHaveCount(0);
+  await expect(page.locator('#camera-stage').getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
   expect(await page.evaluate(() => window.cameraStreams[0].getTracks()[0].readyState)).toBe('live');
   await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
@@ -84,19 +84,26 @@ test('cancelling pending camera permission releases its late stream', async ({ p
   await expect(page.locator('video')).toBeHidden();
 });
 
-test('guide validates uploaded files and home reflows on mobile and desktop', async ({ page }) => {
+test('compact home removes the hero and photo inputs and reflows on mobile and desktop', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.locator('#upload-tab').click();
-  await page.locator('#photo-input').setInputFiles({ name: 'wrong.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
-  await expect(page.locator('#capture-error')).toContainText('JPG, PNG, WebP 또는 AVIF');
+  await expect(page.locator('.hero')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '사진으로 분석', exact: true })).toHaveCount(0);
+  await expect(page.locator('#photo-input')).toHaveCount(0);
+  await expect(page.getByText('내 얼굴에서, 내 손끝으로.', { exact: true })).toHaveCount(0);
+  await expect(page.locator('#result-empty')).toHaveCount(0);
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    const hero = await page.locator('.hero').boundingBox();
-    expect(hero.height).toBeLessThan(700);
     const capture = await page.locator('.capture-panel').boundingBox();
     expect(capture.width).toBeGreaterThan(width === 390 ? 300 : 500);
+    expect(capture.y).toBeLessThan(700);
+    const stage = await page.locator('#camera-stage').boundingBox();
+    const state = await page.getByLabel('인식 상태', { exact: true }).boundingBox();
+    expect(state.x).toBeGreaterThan(stage.x + stage.width / 2);
+    expect(state.y).toBeGreaterThanOrEqual(stage.y);
+    expect(state.y + state.height).toBeLessThan(stage.y + stage.height / 3);
+    await expect(page.locator('.motion-progress').getByLabel('인식 상태', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.pr-review/unified-home-${width}.png`, fullPage: true });
   }
@@ -104,23 +111,24 @@ test('guide validates uploaded files and home reflows on mobile and desktop', as
 });
 
 
-test('photo upload estimates a dose without opening the camera or recording motion', async ({ page }) => {
+test('camera estimates readable amounts and enters motion without a start click', async ({ page }) => {
   await syntheticCamera(page);
   await page.goto('/');
-  await page.locator('#upload-tab').click();
-  const image = await page.evaluate(() => {
-    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1000;
-    canvas.getContext('2d').fillRect(0, 0, 1000, 1000);
-    return canvas.toDataURL('image/png').split(',')[1];
-  });
-  await page.locator('#photo-input').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
+  await page.locator('#start-camera').click();
   await expect(page.locator('#result-content')).toBeVisible();
   await expect(page.locator('#live-dose-value')).toContainText('g');
-  expect(await page.evaluate(() => window.cameraStreams.length)).toBe(0);
+  expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
+  await expect(page.locator('#camera-stage').getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
+  await expect(page.getByText('동작 관찰 중', { exact: true })).toHaveCount(0);
+  for (const selector of ['#dose-value', '#area-value', '#joint-value', '#live-dose-value', '.motion-total-value']) {
+    expect(await page.locator(selector).evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(30);
+  }
   await expect(page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true })).toHaveAttribute('aria-valuenow', '0');
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
-  await page.locator('#photo-input').setInputFiles({ name: 'wrong.txt', mimeType: 'text/plain', buffer: Buffer.from('invalid') });
-  await expect(page.locator('#result-content')).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '.pr-review/auto-guide-result-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
 });
 
 test('stopping during model loading closes late models without resuming observation', async ({ page }) => {
@@ -161,5 +169,5 @@ test('a failed live remeasurement clears the previous amount', async ({ page }) 
   await expect(page.locator('#capture-error')).toContainText('홍채');
   await expect(page.locator('#result-content')).toBeHidden();
   await expect(page.locator('#live-dose-value')).toHaveText('얼굴 확인 후 안내');
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
+  await expect(page.locator('#camera-stage').getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
 });
