@@ -16,9 +16,21 @@ export function SkipLink() {
       : { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}>가이드로 건너뛰기</Link>;
 }
 
+// Sun mark from the SUNFIT logo: disc with four rounded rays.
+export function SunMark({ size = '1.5em' }) {
+  return <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true" style={{ flexShrink: 0 }}>
+    <circle cx="50" cy="50" r="26" fill="var(--color-accent)" />
+    <path d="M50 5v13M50 82v13M5 50h13M82 50h13" stroke="var(--color-accent)" strokeWidth="9" strokeLinecap="round" />
+  </svg>;
+}
+
+function Logo({ level }) {
+  return <HStack vAlign="center" gap={2}><SunMark /><Heading level={level}>SUNFIT</Heading></HStack>;
+}
+
 export function HomeHeader() {
   return <HStack as="header" vAlign="center">
-    <Link href="#" label="SUNFIT 처음으로"><Heading level={3} color="accent">SUNFIT</Heading></Link>
+    <Link href="#" label="SUNFIT 처음으로"><Logo level={3} /></Link>
   </HStack>;
 }
 
@@ -50,7 +62,7 @@ export function HomeMethod() {
 
 export function HomeFooter() {
   return <HStack as="footer" hAlign="between" vAlign="center" wrap="wrap" gap={3}>
-    <Text weight="bold" color="accent">SUNFIT</Text>
+    <HStack vAlign="center" gap={2}><SunMark size="1.25em" /><Text weight="bold">SUNFIT</Text></HStack>
     <Text type="supporting">2026 시립대 해커톤 ‘바르게 살자’ 팀</Text>
   </HStack>;
 }
