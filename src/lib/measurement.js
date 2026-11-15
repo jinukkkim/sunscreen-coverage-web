@@ -7,6 +7,26 @@ const excludedContours = [
   [263,249,390,373,374,380,381,382,362,398,384,385,386,387,388,466],
 ];
 const distance = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+const irisDiameters = points => [distance(points[469],points[471]),distance(points[474],points[476])];
+
+// Current-frame diagnostics use the exact same scale and area calculation as the dose guide.
+// Keep the raw iris pixels visible even when the area fails its quality checks.
+export function getLiveFaceMeasurement(faces,width,height) {
+  const empty = {irisPx:null,irisDiametersPx:[],areaCm2:null};
+  if(!Array.isArray(faces)||!faces.length) return {...empty,reason:'얼굴을 정면으로 비춰 주세요.'};
+  if(faces.length!==1) return {...empty,reason:'한 사람만 화면에 들어오게 해 주세요.'};
+  const landmarks=faces[0];
+  if(!Array.isArray(landmarks)||landmarks.length<478 ||
+    ![width,height].every(n=>Number.isFinite(n)&&n>0) ||
+    !landmarks.every(p=>p&&[p.x,p.y,p.z].every(Number.isFinite))) {
+    return {...empty,reason:'얼굴과 양쪽 홍채 좌표를 읽지 못했습니다.'};
+  }
+  const irises=irisDiameters(landmarks.map(p=>[p.x*width,p.y*height]));
+  const irisPx=(irises[0]+irises[1])/2;
+  const current={irisPx,irisDiametersPx:irises,areaCm2:null};
+  try { return {...current,areaCm2:estimateFace(landmarks,width,height).areaCm2,reason:''}; }
+  catch(error) { return {...current,reason:error.message}; }
+}
 export function triangleAreaCm2(a,b,c) {
   const u=b.map((v,i)=>v-a[i]), v=c.map((n,i)=>n-a[i]);
   return Math.hypot(u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])/200;
@@ -23,7 +43,7 @@ export function estimateFace(landmarks,width,height) {
   if(!Array.isArray(landmarks)||landmarks.length<478) throw new Error('얼굴과 양쪽 홍채가 보이는 사진을 선택해 주세요.');
   if(![width,height].every(n=>Number.isFinite(n)&&n>0) || !landmarks.every(p=>[p.x,p.y,p.z].every(Number.isFinite))) throw new Error('얼굴 좌표를 읽지 못했습니다. 다시 촬영해 주세요.');
   const points=landmarks.map(p=>[p.x*width,p.y*height,p.z*width]);
-  const irises=[distance(points[469],points[471]),distance(points[474],points[476])];
+  const irises=irisDiameters(points);
   const irisPx=(irises[0]+irises[1])/2;
   if(Math.min(...irises)<12) throw new Error('홍채가 작게 보입니다. 더 가까이, 더 선명하게 촬영해 주세요.');
   if(Math.abs(irises[0]-irises[1])/irisPx>.2) throw new Error('양쪽 홍채 크기가 다르게 보입니다. 정면을 바라봐 주세요.');

@@ -29,12 +29,48 @@ async function syntheticCamera(page, { pending = false, pendingModels = false } 
     export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [], createFromOptions: async (_, options) => {
       if (options.runningMode === 'VIDEO' && window.blockVisionModel) await new Promise(resolve => { window.releaseVisionModel = resolve; });
       return ({
-      detect: () => ({faceLandmarks: [window.guideLandmarks]}),
+      detect: () => ({faceLandmarks: window.guideFaces ?? [window.guideLandmarks]}),
       detectForVideo: () => ({faceLandmarks: [window.guideLandmarks]}), close() { window.closedVisionModels++; }
     }); }};
     export const HandLandmarker = {createFromOptions: async () => ({detectForVideo: () => ({landmarks: []}), close() { window.closedVisionModels++; }})};
   ` }));
 }
+
+test('measurement step displays live iris pixels and area without reopening the camera', async ({ page }) => {
+  await seedProduct(page); await syntheticCamera(page); await page.goto('/');
+  await page.getByRole('button', { name: '다음 단계로', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('40.0');
+  await expect(page.locator('#live-face-area')).toHaveText(/\d+\.\d/);
+  const area = await page.locator('#live-face-area').innerText();
+  await expect(page.locator('#live-measure-detail')).toContainText('1000 × 1000 px');
+  await page.evaluate(() => {
+    window.originalGuideLandmarks = structuredClone(window.guideLandmarks);
+    window.guideLandmarks = window.originalGuideLandmarks.map(p => ({x:.5+(p.x-.5)*.5,y:.5+(p.y-.5)*.5,z:p.z*.5}));
+  });
+  await expect(page.locator('#live-iris-px')).toHaveText('20.0');
+  await expect(page.locator('#live-face-area')).toHaveText(area);
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel('실시간 얼굴 측정', { exact: true }).screenshot({ path: '.pr-review/live-face-measurements-mobile.png' });
+  await page.evaluate(() => { window.guideLandmarks = window.originalGuideLandmarks.map(p => ({x:.5+(p.x-.5)*.2,y:.5+(p.y-.5)*.2,z:p.z*.2})); });
+  await expect(page.locator('#live-iris-px')).toHaveText('8.0');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  await expect(page.locator('#live-measure-reason')).toContainText('홍채');
+  await page.evaluate(() => { window.guideFaces = []; });
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  await page.evaluate(() => { window.guideFaces = [window.originalGuideLandmarks]; });
+  await expect(page.locator('#live-iris-px')).toHaveText('40.0');
+  await page.getByRole('button', { name: '카메라 끄기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveText('—');
+  await expect(page.locator('#live-face-area')).toHaveText('—');
+  expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
+  await page.getByRole('button', { name: '선크림 등록으로 돌아가기', exact: true }).click();
+  await expect(page.locator('#live-iris-px')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
+});
 
 test('home guide keeps local dose controls and proceeds to automatic motion without recording', async ({ page }) => {
   await seedProduct(page); await syntheticCamera(page); await page.goto('/');
@@ -43,10 +79,10 @@ test('home guide keeps local dose controls and proceeds to automatic motion with
   const before = await page.locator('#live-finger-value').innerText();
   await page.getByLabel(/검지 한 마디 길이/).fill('40');
   await expect(page.locator('#live-finger-value')).not.toHaveText(before);
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   await page.getByRole('button', { name: '도포 스캔 시작', exact: true }).click();
   await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
-  await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: '하루 도포 타임라인' }).getByText(/· 도포 완료$/)).toHaveCount(0);
   expect(await page.evaluate(() => window.cameraStreams.length)).toBe(1);
 });
 
@@ -84,16 +120,42 @@ test('compact home preserves the team shell and camera status on mobile and desk
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    const stage = await page.locator('#camera-stage').boundingBox();
-    const state = await page.getByLabel('인식 상태', { exact: true }).boundingBox();
-    expect(state.x).toBeGreaterThan(stage.x + stage.width / 2);
-    expect(state.y).toBeGreaterThanOrEqual(stage.y);
-    expect(state.y + state.height).toBeLessThan(stage.y + stage.height / 3);
+    // Read both boxes in one frame: the step indicator reflows after a resize and would shift them between calls.
+    await expect.poll(() => page.evaluate(() => {
+      const stage = document.querySelector('#camera-stage').getBoundingClientRect();
+      const state = document.querySelector('[aria-label="인식 상태"]').getBoundingClientRect();
+      return state.x > stage.x + stage.width / 2 && state.y >= stage.y && state.y + state.height < stage.y + stage.height / 3;
+    })).toBe(true);
     await expect(page.locator('.motion-progress').getByLabel('인식 상태', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.pr-review/integrated-home-${width}.png`, fullPage: true });
   }
   expect(errors).toEqual([]);
+});
+
+test('phone pins the live camera above step actions while the desktop layout stays static', async ({ page }) => {
+  await syntheticCamera(page); await page.setViewportSize({ width: 375, height: 667 }); await page.goto('/');
+  const section = () => page.evaluate(() => getComputedStyle(document.querySelector('#camera-stage').closest('section')).position);
+  expect(await section()).toBe('static');
+  // The collapsed phone stepper must not repeat the step heading below its track.
+  await expect(page.locator('.astryx-stepper-summary')).toHaveCount(0);
+  await page.getByRole('button', { name: '카메라 켜기', exact: true }).click();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('카메라 사용 중');
+  const bothVisible = name => page.evaluate(name => {
+    const stage = document.querySelector('#camera-stage').getBoundingClientRect();
+    const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === name).getBoundingClientRect();
+    const off = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === '카메라 끄기').getBoundingClientRect();
+    return stage.top >= 0 && stage.bottom <= innerHeight && off.bottom <= innerHeight && button.top >= off.bottom && button.bottom <= innerHeight + 1;
+  }, name);
+  for (const [name, next] of [['선크림 촬영하고 인식', '건너뛰기'], ['촬영하고 측정', null]]) {
+    await page.evaluate(name => [...document.querySelectorAll('button')].find(item => item.textContent.trim() === name).scrollIntoView({ block: 'end', behavior: 'instant' }), name);
+    await expect.poll(() => bothVisible(name)).toBe(true);
+    await page.screenshot({ path: `.pr-review/pinned-camera-${name}.png` });
+    if (next) await page.getByRole('button', { name: next, exact: true }).click();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(section).toBe('static');
 });
 
 test('stopping during model loading closes late models without resuming observation', async ({ page }) => {

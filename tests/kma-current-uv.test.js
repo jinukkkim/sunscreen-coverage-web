@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server/app.js';
 import { UvError } from '../server/uv.js';
-import { currentUvDetails, formatUvTime, KMA_UV_SOURCE_URL } from '../src/lib/uv-details.js';
+import { currentUvDetails, formatUvTime, KMA_UV_SOURCE_URL, uvLevel } from '../src/lib/uv-details.js';
 import { emptyCare, policyAt, recordApplication, nextDue } from '../src/lib/reapplication.js';
 
 const at = value => Date.parse(`2026-11-14T${value}:00+09:00`);
@@ -25,6 +25,16 @@ test('current UV and reminder policy select the same KMA slot, including zero', 
     if (minutes !== null) assert.equal(nextDue(state, now(), data).at, at('09:00') + minutes * 60000);
   }
   assert.match(formatUvTime(forecast().publishedAt), /09:00/);
+});
+
+test('UV card shows the KMA band and station distance', () => {
+  assert.deepEqual([0, 2.9, 3, 5, 6, 7, 8, 10, 11, 15].map(uvLevel), ['낮음', '낮음', '보통', '보통', '높음', '높음', '매우 높음', '매우 높음', '위험', '위험']);
+  assert.equal(uvLevel(-1), null);
+  assert.equal(uvLevel(NaN), null);
+  const details = currentUvDetails(forecast(7), now());
+  assert.equal(details.level, '높음');
+  assert.equal(details.region.distanceKm, 0.2);
+  assert.equal(currentUvDetails(forecast(7), now() + 60 * 60000 + 1), null);
 });
 
 test('stale, future, missing and invalid forecast slots never become current UV', () => {

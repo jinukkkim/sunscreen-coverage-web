@@ -9,8 +9,12 @@ import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
 import { Section } from '@astryxdesign/core/Section';
+import { useMediaQuery } from '@astryxdesign/core/hooks';
 
 const emptyAnalysis = { phase: 'stopped', reason: '', geometry: null, hands: [], regions: [], detectedCount: 0, progress: 0, sessionId: null, completedAt: null };
+// Readable labels over the live video.
+const chip = { backgroundColor: 'var(--color-background-surface)', padding: 'var(--spacing-1) var(--spacing-2)', borderRadius: 'var(--radius-full)' };
+
 export default function Camera({ onAnalysisChange, video, mode = 'motion', onActiveChange, photoFrozen = false }) {
   const session = useRef(null), vision = useRef(null), completionCanvas = useRef(null);
   const request = useRef(0), alive = useRef(true), onChange = useRef(onAnalysisChange);
@@ -18,6 +22,9 @@ export default function Camera({ onAnalysisChange, video, mode = 'motion', onAct
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState(emptyAnalysis);
+  // Phones only: pin a compact camera (stage + camera buttons) to the top while it is on,
+  // so step actions further down stay reachable with the preview in view.
+  const pinned = useMediaQuery('(max-width: 640px)') && status !== 'idle' && mode !== 'completed';
 
   useEffect(() => { onActiveChange?.(status === 'active'); }, [status, onActiveChange]);
   useEffect(() => {
@@ -107,23 +114,23 @@ export default function Camera({ onAnalysisChange, video, mode = 'motion', onAct
   }
 
   return (
-    <Section padding={4} className="capture-panel">
-      <VStack gap={3}>
-        <Heading level={2}>선케어 카메라</Heading>
-        <VStack id="camera-stage" style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
+    <Section variant="muted" padding={pinned ? 2 : 4} style={pinned ? { position: 'sticky', top: 0, zIndex: 1 } : undefined}>
+      <VStack gap={pinned ? 2 : 3}>
+        {!pinned && <Heading level={2}>선케어 카메라</Heading>}
+        <VStack id="camera-stage" style={{ position: 'relative', aspectRatio: '4 / 3', maxHeight: pinned ? '42svh' : undefined, overflow: 'hidden', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-body)' }}>
           <video ref={video} autoPlay muted playsInline aria-label="카메라 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: mode === 'product' ? 'none' : 'scaleX(-1)' }} />
           <FaceOverlay analysis={analysis} video={video} />
           <canvas ref={completionCanvas} aria-label="완료한 도포 동작 화면" hidden={mode !== 'completed'} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
           {mode === 'product' && <VStack aria-hidden="true" style={{ position: 'absolute', left: '25%', top: '10%', width: '50%', height: '80%', border: 'medium dashed var(--color-text-primary)', borderRadius: 'var(--radius-container)', pointerEvents: 'none' }} />}
           {mode === 'motion' && status === 'active' && analysis.phase !== 'completed' && !analysis.geometry && <VStack aria-hidden="true" style={{ position: 'absolute', left: '28%', top: '12%', width: '44%', height: '76%', border: 'medium dashed var(--color-text-secondary)', borderRadius: '48%', pointerEvents: 'none' }} />}
           {status !== 'active' && mode !== 'completed' && <VStack padding={4} vAlign="center" style={{ position: 'absolute', inset: 0 }}><Text justify="center">{status === 'loading' ? '카메라 권한을 확인하고 있습니다.' : '카메라를 켜면 내 모습이 표시됩니다.'}</Text></VStack>}
-          <HStack className="stage-meta" hAlign="between">
-            <Text type="supporting">{mode === 'product' ? '제품 촬영' : '얼굴·동작 분석'}</Text>
-            <Text id="stage-resolution" role="status" aria-label="인식 상태" aria-live="polite">{mode === 'completed' ? '동작 관찰 완료' : photoFrozen ? '촬영 사진 확인 중' : status === 'loading' ? '카메라 연결 중' : status !== 'active' ? '카메라 꺼짐' : mode !== 'motion' ? '카메라 사용 중' : ({ loading: '인식 준비 중', scanning: '얼굴 스캔 중', ready: '자동 시작 준비 중', recovering: '인식 복구 대기', tracking: '제품을 바르세요', error: '분석 재시도 필요' }[analysis.phase] || '카메라 사용 중')}</Text>
+          <HStack hAlign="between" vAlign="start" gap={2} style={{ position: 'absolute', top: 'var(--spacing-3)', left: 'var(--spacing-3)', right: 'var(--spacing-3)' }}>
+            <Text type="supporting" style={chip}>{mode === 'product' ? '제품 촬영' : '얼굴·동작 분석'}</Text>
+            <Text id="stage-resolution" style={chip} role="status" aria-label="인식 상태" aria-live="polite">{mode === 'completed' ? '동작 관찰 완료' : photoFrozen ? '촬영 사진 확인 중' : status === 'loading' ? '카메라 연결 중' : status !== 'active' ? '카메라 꺼짐' : mode !== 'motion' ? '카메라 사용 중' : ({ loading: '인식 준비 중', scanning: '얼굴 스캔 중', ready: '자동 시작 준비 중', recovering: '인식 복구 대기', tracking: '제품을 바르세요', error: '분석 재시도 필요' }[analysis.phase] || '카메라 사용 중')}</Text>
           </HStack>
         </VStack>
         <Text>{mode === 'product' ? '선크림 라벨이 중앙 가이드 안에 들어오도록 들고 촬영해 주세요.' : mode === 'measurement' ? '선크림을 내려놓고 얼굴과 양쪽 눈을 정면에 맞춰 주세요.' : mode === 'guide' ? '안내량을 확인하고 준비되면 같은 화면에서 도포 스캔을 시작하세요.' : mode === 'completed' ? '촬영을 마쳤습니다. 카메라는 꺼졌고 기록과 알림을 확인할 수 있습니다.' : '정면 얼굴을 2초간 유지하면 손으로 펴 바르는 동작 관찰을 자동 시작합니다.'}</Text>
-        {mode === 'motion' && <HStack as="ol" wrap="wrap" gap={4} aria-label="사용 순서" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {mode === 'motion' && !pinned && <HStack as="ol" wrap="wrap" gap={4} aria-label="사용 순서" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           <VStack as="li"><Text type="supporting">1. 얼굴 맞추기</Text></VStack>
           <VStack as="li"><Text type="supporting">2. 부위 확인</Text></VStack>
           <VStack as="li"><Text type="supporting">3. 펴 바르기</Text></VStack>
@@ -137,9 +144,9 @@ export default function Camera({ onAnalysisChange, video, mode = 'motion', onAct
           {mode === 'motion' && status === 'active' && analysis.phase === 'error' && <Button label="분석 다시 시도" onClick={analyze} />}
           {mode === 'motion' && status === 'active' && analysis.phase === 'completed' && <Button label="새 도포 시작" onClick={analyze} />}
         </HStack>
-        {mode === 'motion' && <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>}
-        {mode === 'motion' && <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>}
-        <Text type="supporting">제품 단계에서 동의 후 촬영한 가이드 영역만 분석 서버로 보냅니다. 얼굴 측정·스캔 영상과 특징점은 기기 안에서만 처리합니다.</Text>
+        {mode === 'motion' && !pinned && <Text type="supporting">머리카락과 손으로 얼굴이 가려지지 않게 부위를 먼저 확인해 주세요. 좌우는 내 얼굴 기준입니다.</Text>}
+        {mode === 'motion' && !pinned && <Text type="supporting">잠깐 인식이 끊겨도 진행률은 유지됩니다. 다른 사람이 사용할 때는 다시 시작해 주세요.</Text>}
+        {!pinned && <Text type="supporting">제품 단계에서 동의 후 촬영한 가이드 영역만 분석 서버로 보냅니다. 얼굴 측정·스캔 영상과 특징점은 기기 안에서만 처리합니다.</Text>}
       </VStack>
     </Section>
   );
