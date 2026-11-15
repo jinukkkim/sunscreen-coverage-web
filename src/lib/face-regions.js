@@ -99,3 +99,30 @@ export function getMeshSegments(landmarks, connections) {
     return hidden ? [] : [[a, b]];
   });
 }
+
+// The pinned MediaPipe tessellation lists each face as three consecutive edges.
+// Use the same visible edges as the wireframe so eye and lip holes stay empty.
+export function getMeshTriangles(geometry, connections) {
+  const { landmarks } = geometry;
+  const indices = new Map(landmarks.map((point, index) => [point, index]));
+  const edgeKey = (a, b) => a < b ? `${a}:${b}` : `${b}:${a}`;
+  const visible = new Set(getMeshSegments(landmarks, connections)
+    .map(([a, b]) => edgeKey(indices.get(a), indices.get(b))));
+  const seen = new Set(), triangles = [];
+  for (let i = 0; i + 2 < connections.length; i += 3) {
+    const edges = connections.slice(i, i + 3);
+    const ids = [...new Set(edges.flatMap(edge => [edge.start, edge.end]))].sort((a, b) => a - b);
+    if (ids.length !== 3 || new Set(edges.map(edge => edgeKey(edge.start, edge.end))).size !== 3 ||
+        edges.some(edge => edge.start === edge.end || !visible.has(edgeKey(edge.start, edge.end)))) continue;
+    const id = ids.join(':'), points = ids.map(index => landmarks[index]);
+    if (seen.has(id) || points.some(point => !finitePoint(point))) continue;
+    const [a, b, c] = points;
+    if (Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) < 1e-10) continue;
+    const center = { x: (a.x + b.x + c.x) / 3, y: (a.y + b.y + c.y) / 3 };
+    const regionId = locateRegion(geometry, [center]);
+    if (!regionId) continue;
+    seen.add(id);
+    triangles.push({ id, regionId, points, orderY: geometry.toFacePoint(center).y });
+  }
+  return triangles.sort((a, b) => b.orderY - a.orderY || a.id.localeCompare(b.id));
+}

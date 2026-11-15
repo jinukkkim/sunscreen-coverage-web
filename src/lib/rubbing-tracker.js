@@ -1,13 +1,15 @@
 import { REGIONS, locateRegion } from './face-regions.js';
 
 // Initial heuristic values in eye-distance units; real-device calibration remains required.
-const REQUIRED_MS = 2000, MAX_GAP_MS = 500, STILL_RESET_MS = 300;
+// Product interaction timings, not validated sunscreen application durations.
+const REQUIRED_MS = { nose: 1000, chin: 1500, forehead: 2000, leftCheek: 2000, rightCheek: 2000 };
+const MAX_GAP_MS = 500, STILL_RESET_MS = 300;
 const MIN_SPEED = .03, MAX_SPEED = 3, MIN_RANGE = .08, MIN_PATH = .45, MATCH_DISTANCE = .25;
 const fingerIndices = [6, 8, 10, 12, 14, 16];
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 export function createRubbingTracker() {
-  let detected = new Set(), progress = new Map(), tracks = [], lastTimestamp = null;
+  let detected = new Set(), progress = new Map(), accumulated = new Map(), tracks = [], lastTimestamp = null;
   function snapshot() {
     const regions = REGIONS.map(({ id }) => ({
       id, status: detected.has(id) ? 'detected' : tracks.some(t => t.region === id && t.activeMs > 0) ? 'observing' : 'pending',
@@ -16,7 +18,7 @@ export function createRubbingTracker() {
     return { regions, detectedCount: detected.size, progress: Math.floor(regions.reduce((sum, region) => sum + region.progress, 0) / REGIONS.length) };
   }
   function interrupt() { tracks = []; lastTimestamp = null; }
-  function reset() { detected = new Set(); progress = new Map(); tracks = []; lastTimestamp = null; }
+  function reset() { detected = new Set(); progress = new Map(); accumulated = new Map(); tracks = []; lastTimestamp = null; }
   function update({ geometry, hands = [], timestampMs }) {
     if (!Number.isFinite(timestampMs) || (lastTimestamp !== null && timestampMs <= lastTimestamp)) return snapshot();
     const dt = lastTimestamp === null ? 0 : timestampMs - lastTimestamp;
@@ -36,6 +38,7 @@ export function createRubbingTracker() {
       return [{ region, imagePosition, position: geometry.toFacePoint(imagePosition) }];
     });
     const candidates = observations.map(o => tracks.filter(t => t.region === o.region && distance(t.position, o.position) < MATCH_DISTANCE));
+    const frameCredit = new Map();
     const next = observations.map((o, index) => {
       const candidate = candidates[index].length === 1 ? candidates[index][0] : null;
       const unique = candidate && candidates.filter(list => list.includes(candidate)).length === 1;
@@ -48,23 +51,29 @@ export function createRubbingTracker() {
       const moving = previous && speed >= MIN_SPEED && speed <= MAX_SPEED && imageSpeed >= MIN_SPEED && imageSpeed <= MAX_SPEED;
       const continuing = previous && timestampMs - previous.lastMove <= STILL_RESET_MS && speed <= MAX_SPEED;
       const track = continuing ? { ...previous, ...o } : {
-        ...o, activeMs: 0, path: 0, minX: o.position.x, maxX: o.position.x,
+        ...o, activeMs: 0, minX: o.position.x, maxX: o.position.x,
         minY: o.position.y, maxY: o.position.y, lastMove: timestampMs,
       };
       if (moving) {
-        track.activeMs += dt; track.path += step; track.lastMove = timestampMs;
+        track.activeMs += dt; track.lastMove = timestampMs;
         track.minX = Math.min(track.minX, o.position.x); track.maxX = Math.max(track.maxX, o.position.x);
         track.minY = Math.min(track.minY, o.position.y); track.maxY = Math.max(track.maxY, o.position.y);
       }
-      if (track.activeMs >= REQUIRED_MS && track.path >= MIN_PATH &&
-        Math.hypot(track.maxX - track.minX, track.maxY - track.minY) >= MIN_RANGE) detected.add(o.region);
-      // Show the strongest valid continuous observation, never a measured dose.
-      // Interrupted tracks cannot add their time together to reach completion.
-      const fraction = Math.min(track.activeMs / REQUIRED_MS, track.path / MIN_PATH,
-        Math.hypot(track.maxX - track.minX, track.maxY - track.minY) / MIN_RANGE);
-      progress.set(o.region, Math.max(progress.get(o.region) || 0, Math.min(99, Math.floor(fraction * 100))));
+      // Credit only observed movement after this track establishes a real range.
+      // Multiple hands in one region must not multiply the elapsed time.
+      if (moving && Math.hypot(track.maxX - track.minX, track.maxY - track.minY) >= MIN_RANGE) {
+        frameCredit.set(o.region, Math.max(frameCredit.get(o.region) || 0, step));
+      }
       return track;
     });
+    for (const [region, path] of frameCredit) {
+      const total = accumulated.get(region) || { activeMs: 0, path: 0 };
+      total.activeMs += dt; total.path += path;
+      accumulated.set(region, total);
+      if (total.activeMs >= REQUIRED_MS[region] && total.path >= MIN_PATH) detected.add(region);
+      const fraction = Math.min(total.activeMs / REQUIRED_MS[region], total.path / MIN_PATH);
+      progress.set(region, Math.min(99, Math.floor(fraction * 100)));
+    }
     tracks = next;
     return snapshot();
   }

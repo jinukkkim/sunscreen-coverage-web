@@ -38,7 +38,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await page.route('**/assets/vision_bundle-*.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
       export const FilesetResolver = {forVisionTasks: async () => ({})};
-      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}], createFromOptions: async () => ({
+      export const FaceLandmarker = {FACE_LANDMARKS_TESSELATION: [{start: 345, end: 348}, {start: 348, end: 347}, {start: 347, end: 345}], createFromOptions: async () => ({
         detect: () => ({faceLandmarks: [window.measurementPoints]}),
         detectForVideo: () => ({faceLandmarks: window.motionFixture.faceVisible === false ? [] : [window.motionFixture.face]}),
         close: () => {window.motionFixture.closed++;}
@@ -65,8 +65,7 @@ test('partial motion progresses, completion records once and starts the UV timer
   await page.getByLabel('오늘 알림 종료 시각 (한국 시간)').fill('18:30');
   await page.getByRole('checkbox', { name: '알림마다 새 위치를 확인해 UV 예보 갱신' }).check();
   await expect(page.getByText('적용 주기: 80분', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   const overall = page.getByRole('progressbar', { name: '전체 동작 진행률', exact: true });
   await expect.poll(async () => Number(await overall.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
   expect(Number(await overall.getAttribute('aria-valuenow'))).toBeLessThan(100);
@@ -78,20 +77,19 @@ test('partial motion progresses, completion records once and starts the UV timer
   await expect.poll(hasOverlay).toBe(true);
   const partialProgress = await overall.getAttribute('aria-valuenow');
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
-  await expect(page.getByText('인식 복구 대기', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('인식 복구 대기');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByRole('button', { name: '다시 시작', exact: true })).toBeVisible();
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByText('동작 관찰 중', { exact: true })).toBeVisible();
+  await expect(page.getByText('제품을 바르세요', { exact: true })).toBeVisible();
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  // Sustained loss requires confirmation but keeps the same accumulated progress.
+  // Sustained loss requires another stable countdown but keeps the same accumulated progress.
   await page.evaluate(() => { window.motionFixture.faceVisible = false; });
   await expect(page.getByText('얼굴 스캔 중', { exact: true })).toBeVisible({ timeout: 6000 });
   await page.evaluate(() => { window.motionFixture.faceVisible = true; });
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeEnabled();
+  await expect(page.getByLabel('인식 상태', { exact: true })).toHaveText('제품을 바르세요');
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
-  await page.getByRole('button', { name: '부위 확인 후 시작', exact: true }).click();
   await expect(overall).toHaveAttribute('aria-valuenow', partialProgress);
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   const before = await page.evaluate(() => Date.now());
@@ -111,6 +109,8 @@ test('partial motion progresses, completion records once and starts the UV timer
   expect(await page.evaluate(() => window.motionFixture.closed)).toBe(2);
   await expect.poll(hasOverlay).toBe(false);
   await expect(page.getByLabel('카메라 미리보기')).toBeVisible();
+  await expect(page.getByLabel('완료한 도포 동작 화면')).toBeVisible();
+  expect(await page.getByLabel('완료한 도포 동작 화면').evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((v,i) => i % 4 === 3 && v > 0))).toBe(true);
   await page.screenshot({ path: '.pr-review/motion-completed.png', fullPage: true });
   await page.clock.fastForward(80 * 60000);
   await expect(page.getByText('재도포할 시간입니다', { exact: true })).toBeVisible();

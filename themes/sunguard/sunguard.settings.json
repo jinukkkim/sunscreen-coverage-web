@@ -1,0 +1,25 @@
+{
+  "name": "sunguard",
+  "like": "neutral",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "accent",
+      "value": "#ff5e1f",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#262626",
+      "source": "dial"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#ffffff",
+      "source": "token",
+      "mode": "light"
+    }
+  ],
+  "lifted": [],
+  "palette": "198a4291d25acb937d02ca13b7aed7df968f7d4187a086605671d34a503e73fe"
+}

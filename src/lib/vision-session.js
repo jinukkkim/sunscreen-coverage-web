@@ -1,6 +1,8 @@
 import { getFaceGeometry } from './face-regions.js';
 import { createRubbingTracker } from './rubbing-tracker.js';
 
+export const AUTO_START_MS = 2000;
+
 export async function loadVisionModels({ sdk } = {}) {
   sdk ??= await import('@mediapipe/tasks-vision');
   const files = await sdk.FilesetResolver.forVisionTasks('/vision/wasm');
@@ -98,8 +100,12 @@ export function createVisionSession({
             if (!anchor || points.some((p, i) => Math.hypot(p.x - anchor[i].x, p.y - anchor[i].y) > .02)) {
               anchor = points.map(p => ({ ...p })); stableSince = timestamp; phase = 'scanning';
             }
-            phase = timestamp - stableSince >= 1000 ? 'ready' : 'scanning';
-            emit(phase === 'ready' ? '표시된 부위를 확인한 뒤 시작해 주세요.' : '얼굴을 잠시 정면으로 유지해 주세요.');
+            const stableMs = timestamp - stableSince;
+            // The ready update lets the shared camera calculate the dose first.
+            // Only consecutive valid video frames can complete the countdown.
+            phase = stableMs >= 1000 ? 'ready' : 'scanning';
+            emit(`정면 얼굴을 유지해 주세요. ${Math.max(0, Math.ceil((AUTO_START_MS - stableMs) / 1000))}초 후 도포 동작 관찰을 자동 시작합니다.`);
+            if (stableMs >= AUTO_START_MS) confirmScan();
           } else {
             const hands = models.hand.detectForVideo(video, timestamp).landmarks;
             tracker.update({ geometry, hands, timestampMs: timestamp });

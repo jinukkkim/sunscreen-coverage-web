@@ -23,6 +23,7 @@ export default function CareFlow({ model }) {
   const [step, setStep] = useState(0), [profile, setProfile] = useState(() => loadProfile(window.localStorage));
   const [measurement, setMeasurement] = useState(null), [completed, setCompleted] = useState(null);
   const [skippedProduct, setSkippedProduct] = useState(false);
+  const [jointMm, setJointMm] = useState(25);
   const video = useRef(null), completedSession = useRef(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [productFrozen, setProductFrozen] = useState(false);
@@ -60,9 +61,9 @@ export default function CareFlow({ model }) {
   const due = nextDue(model.care, model.now, model.forecast);
   const policy = policyAt(model.forecast, model.now, model.now);
   const selectedProfile = skippedProduct ? null : profile;
-  const creamGuide = measurement && ['cream', 'lotion', 'gel'].includes(selectedProfile?.form) ? getFingerGuide(measurement.doseGrams) : null;
+  const creamGuide = measurement && ['cream', 'lotion', 'gel'].includes(selectedProfile?.form) ? getFingerGuide(measurement.doseGrams, jointMm) : null;
 
-  return <VStack as="section" gap={4} aria-label="선케어 순서">
+  return <VStack as="section" id="workspace" gap={4} aria-label="선케어 순서">
     <VStack gap={2}>
       <Heading level={1}>내 선크림부터 오늘의 알림까지</Heading>
       <Text>내 제품을 등록하고, 얼굴 크기에 따른 참고량을 확인한 뒤 펴 바르는 동작을 스캔하세요.</Text>
@@ -91,12 +92,16 @@ export default function CareFlow({ model }) {
     {step === 2 && measurement && <Section padding={4}><VStack gap={4}>
       <Heading level={2}>도포 용량 안내</Heading>
       <Text type="label">{selectedProfile?.name || '선크림 미등록'}</Text>
-      <Heading level={3}>모델 영역 기준 추정량 {measurement.doseGrams.toFixed(2)}g</Heading>
+      <Text type="label">모델 영역 기준 추정량</Text>
+      <Heading level={3} id="live-dose-value" style={{ fontSize: 'var(--font-size-4xl)' }}>{measurement.doseGrams.toFixed(2)}g</Heading>
       <Text>분석 영역 약 {measurement.areaCm2.toFixed(0)}cm² · 너비 {measurement.widthCm.toFixed(1)}cm · 높이 {measurement.heightCm.toFixed(1)}cm</Text>
       <Text>눈·입술을 제외한 모델 영역에 2mg/cm²를 적용한 계산입니다. 얼굴 전체의 권장량이나 실제 바른 양을 측정한 값이 아닙니다.</Text>
       {creamGuide ? <VStack gap={2}>
-        <Text type="label">표준 크림 줄 참고: 약 {creamGuide.stripMm.toFixed(0)}mm · {creamGuide.joints.toFixed(1)}마디</Text>
-        <Text type="supporting">5mm 줄, 25mm당 0.5g, 한 마디 25mm를 가정한 시연용 환산입니다. 등록 제품의 토출량·밀도는 보정하지 않았습니다.</Text>
+        <Text type="label">표준 크림 줄 참고: 약 {creamGuide.stripMm.toFixed(0)}mm</Text>
+        <Heading level={3} id="live-finger-value" style={{ fontSize: 'var(--font-size-4xl)' }}>{creamGuide.joints.toFixed(1)}마디</Heading>
+        <label htmlFor="joint-length"><Text type="label">검지 한 마디 길이 (mm): {jointMm}</Text></label>
+        <input id="joint-length" type="range" min={10} max={45} value={jointMm} onChange={event => setJointMm(Number(event.target.value))} />
+        <Text type="supporting">5mm 줄, 25mm당 0.5g, 한 마디 {jointMm}mm를 가정한 시연용 환산입니다. 등록 제품의 토출량·밀도는 보정하지 않았습니다.</Text>
       </VStack> : !selectedProfile ? <Text>선크림 등록을 건너뛰어 제품별 안내와 길이 환산은 표시하지 않습니다. 모델 영역의 추정량만 참고하세요.</Text> : <Text>스틱·스프레이 또는 제형 미확인 제품에는 크림 기준 길이 환산을 적용하지 않습니다. 제품 라벨의 사용 방법을 확인해 주세요.</Text>}
       <Text type="supporting">평균 홍채 지름 11.7mm를 가정합니다. 11.2–12.2mm 가정에서는 영역 면적이 {measurement.areaSensitivity.map(value => value.toFixed(0)).join('–')}cm²로 달라집니다. 귀·목 등 모델 밖 영역은 별도로 챙겨 주세요.</Text>
       <HStack gap={2} wrap="wrap">

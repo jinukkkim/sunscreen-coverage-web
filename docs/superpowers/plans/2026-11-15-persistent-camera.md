@@ -49,3 +49,14 @@
 - Camera resumes playback when advancing/skipping/retaking. Recognition failure retains the photo with retry/retake controls; explicit cancellation resumes live preview. Camera off/hidden-tab handling still releases tracks and clears the frozen state.
 - Added browser tests for pause throughout the pending API and recognized result, same-stream playback on next, and retake after recognition failure. Observed the missing pause fail before implementation.
 - Freeze verification: full Chrome E2E 36/36 (44.9s), unit/API 128/128, build passed, Astryx fail 0, git diff --check clean. Real phone playback remains unverified.
+
+## PR #18: 최신 main 충돌 통합
+- Merge source: origin/main ca41654. Preserve existing team commits as the merge parent; no rebase, force push, or main-branch merge.
+- Keep main's SunGuard theme/header/footer/FAQ, KMA-only current-period UV and horizontal timeline, accumulated regional timing, triangular mesh fill, large numbers, adjustable finger joint length, and automatic motion after two stable seconds.
+- Retain this branch's explicit product result/next/skip, product snapshot pause/resume, local measurement, fixed video and single hardware stream.
+- Final observation image composites the video and mesh in memory before tracks stop. Clear the live analysis layer after compositing. No camera image is saved to storage.
+- Update face-photo FAQ to distinguish local face analysis from consented product-crop transmission.
+- Adapt existing home/camera tests to the new step flow, retaining permission/model cancellation, auto-start, number sizing, failed remeasurement and responsive status-position coverage.
+- Integration review identified FAQ copy contradiction and retained live overlay; both corrected. First full integration run 43/45 passed; the two observed failures were fixed and focused regression run passed 8/8.
+- Staged whitespace check includes inherited main-only generated-file whitespace; PR-relative `git diff --check origin/main` is clean. Generated theme files kept unchanged.
+- Final integrated verification: unit/API 144/144, Chrome E2E 45/45 (1.2m), build successful, Astryx fail 0 (2 existing warnings), PR-relative whitespace clean. Inspected integrated mobile/desktop and completed observation screenshots.

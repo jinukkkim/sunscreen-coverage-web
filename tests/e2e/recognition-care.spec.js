@@ -47,7 +47,7 @@ test('local vision models run on a synthetic stream and camera stop releases it'
   await page.goto('/');
   await enterScan(page);
   await expect(page.getByText('얼굴 스캔 중', { exact: true })).toBeVisible({ timeout: 45000 });
-  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '부위 확인 후 시작', exact: true })).toHaveCount(0);
   await expect(page.getByText('5구역 중 0구역에서 동작 감지', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '기록 없음', exact: true })).toBeVisible();
   const video = page.getByLabel('카메라 미리보기');
